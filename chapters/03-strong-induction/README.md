@@ -115,22 +115,75 @@ Strong induction is *exactly* the proof structure Z3 doesn't have. To prove `fib
 
 A typical Verus proof of a Fibonacci bound is 30–60 lines of careful scaffolding. Lean's `decreases`-driven recursion turns that into "call yourself on smaller arguments; Lean checks termination."
 
-## What about the addition formula?
+## The headline result: the addition formula
 
-The headline strong-induction Fibonacci result is the **addition formula**:
+The classical strong-induction Fibonacci identity is the **addition formula**:
 
 > F_{m+n+1} = F_m · F_n + F_{m+1} · F_{n+1}
 
-It needs strong induction on `m`: the inductive step uses the IH at `m - 1` AND `m - 2` to derive the result at `m`. The structure is the same `fib_le_pow2` pattern from this chapter, but the arithmetic in the recursive case is substantially heavier — we have to combine two IH instances, reason about subscript algebra (`(m + n + 1) = (m - 1) + n + 2`, etc.), and use the Fibonacci recurrence on the LHS.
+Its proof has the same shape as `fib_le_pow2` — two base cases plus a recursive case that uses the IH at both `m - 1` and `m - 2` — but the algebra at the end is heavier: we combine *two* IH instances with the Fibonacci recurrence applied at *three* positions. The full proof is in [`strong_induction.rs`](strong_induction.rs); here we walk through the recursive case.
 
-It's verifiable in current Tactus, but ~60–80 lines including all the explicit subscript rewrites. We'll come back to it in a later chapter once we've built up more tooling for that kind of bookkeeping.
+### Setup
 
-The reason the addition formula matters: it's the **basis of an O(log n) Fibonacci algorithm**. Substituting `m = n + 1` gives `F_{2n+2} = F_{n+1} · F_n + F_{n+2} · F_{n+1}`, and from that you can derive the *fast doubling* formulas:
+```rust
+have ih1 := fib_addition (m - 1) n
+have ih2 := fib_addition (m - 2) n
+```
 
-> F_{2n} = F_n · (2·F_{n+1} − F_n)
+The IHs come out with subscripts like `(m - 1) + n + 1`, which we'd like in the form `m + n`. Omega handles all of these:
+
+```rust
+have e1a : (m - 1) + n + 1 = m + n := by omega
+have e1b : (m - 1) + 1 = m := by omega
+rw [e1a, e1b] at ih1
+```
+
+After the rewrites:
+
+```
+ih1 : fib (m + n)     = fib (m - 1) · fib n + fib m       · fib (n + 1)
+ih2 : fib (m + n - 1) = fib (m - 2) · fib n + fib (m - 1) · fib (n + 1)
+```
+
+### Three uses of the Fibonacci recurrence
+
+Each follows the same pattern from chapter 2: unfold `fib` once, simplify the if-cascade, fix up the `.toNat` wrapper.
+
+```rust
+have step_m    : fib m         = fib (m - 1) + fib (m - 2)        := by ...
+have step_m1   : fib (m + 1)   = fib m + fib (m - 1)              := by ...
+have step_sum  : fib (m + n + 1) = fib (m + n) + fib (m + n - 1)  := by ...
+```
+
+### Combining
+
+```rust
+nlinarith [step_sum, ih1, ih2, step_m, step_m1]
+```
+
+`nlinarith` is `linarith` with multiplication — it solves polynomial identities given a set of facts. Reading the algebra by hand:
+
+```
+F_{m+n+1}
+  = F_{m+n} + F_{m+n-1}                                          [step_sum]
+  = (F_{m-1} F_n + F_m F_{n+1}) + (F_{m-2} F_n + F_{m-1} F_{n+1}) [ih1, ih2]
+  = (F_{m-1} + F_{m-2}) F_n + (F_m + F_{m-1}) F_{n+1}             [factor]
+  = F_m F_n + F_{m+1} F_{n+1}                                    [step_m, step_m1]
+```
+
+`nlinarith` finds this chain automatically from the five facts in scope.
+
+### Why this is worth the trouble
+
+Substituting `m = n` into the addition formula collapses it to:
+
 > F_{2n+1} = F_n² + F_{n+1}²
 
-Computing `fib(n)` via fast doubling takes O(log n) multiplications instead of O(n) additions. That's the kind of optimization formal verification actually unlocks: prove the algebraic identity once, then *trust* the speedup.
+And a similar substitution gives:
+
+> F_{2n} = F_n · (2·F_{n+1} − F_n)
+
+These are the **fast-doubling** formulas. They let you compute `F_n` in O(log n) multiplications instead of O(n) additions — exponentially faster than the naive recurrence. Once the addition formula is proved, an iterative Rust function that does fast doubling can be verified against `fib` with the addition formula as its key lemma. That's the kind of "prove once, optimize freely" payoff formal verification delivers.
 
 ## Exercises
 
