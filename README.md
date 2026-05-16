@@ -90,5 +90,8 @@ Pulling it all together with real Rust algorithms verified against mathematical 
 
 ## Status
 
-- Chapter 1: ⏳ in progress
-- Chapters 2–5: not yet started
+- Chapter 1: ✅ drafted (`sum_to_n`)
+- Chapter 2: ✅ drafted (Fibonacci identities — moved up from the original Chapter 4 slot)
+- Chapters 3–5: not yet started
+
+The chapter order has shifted from the original outline: exec-fn verification (originally Chapter 2 with `factorial`) is deferred until Tactus's tooling for the `as nat`-into-recursive-spec-fn pattern matures. The proof-fn-only chapters in the meantime build up the techniques (induction, strong induction, rewriting) we'll want when we return to exec verification.
