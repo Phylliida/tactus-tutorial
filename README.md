@@ -8,27 +8,16 @@ This tutorial is for readers with **some** familiarity with Rust and Lean, but n
 
 ## Setup
 
-You need a working build of Tactus and a Mathlib download. Both are one-time.
+See [Chapter 0](chapters/00-setup/README.md) for a detailed setup walkthrough — prerequisites, building Tactus, downloading Mathlib, PATH wrangling, and troubleshooting. The very short version:
 
 ```bash
-# 1. Clone tactus next to this repo (assumed at ../tactus)
 git clone https://github.com/Phylliida/tactus.git ../tactus
-
-# 2. Build vargo, then Tactus
 cd ../tactus/tools/vargo && cargo build --release && cd ../../source
 PATH="../tools/vargo/target/release:$PATH" vargo build --release
-
-# 3. Download precompiled Mathlib (~2 GB, takes 2–5 minutes)
 cd lean_verify && ./scripts/setup-mathlib.sh
 ```
 
-Confirm Lean is on `$PATH` (`which lake` should succeed). If you used `elan`, add the toolchain bin dir to your `PATH`:
-
-```bash
-export PATH="$HOME/.elan/toolchains/leanprover--lean4---v4.25.0/bin:$PATH"
-```
-
-To verify a chapter:
+Then verify a chapter:
 
 ```bash
 ../tactus/source/target-verus/release/verus chapters/01-sum-to-n/sum_to_n.rs
@@ -90,6 +79,7 @@ Pulling it all together with real Rust algorithms verified against mathematical 
 
 ## Status
 
+- Chapter 0: ✅ drafted (setup and toolchain)
 - Chapter 1: ✅ drafted (`sum_to_n`)
 - Chapter 2: ✅ drafted (Fibonacci identities — moved up from the original Chapter 4 slot)
 - Chapter 2.5 (optional): ✅ drafted (Fibonacci, encoded over `int` instead of `nat` — alternative encoding for readers who want to see the trade-off)
