@@ -88,21 +88,75 @@ You might wonder: if `induction` is so powerful, why does the `succ` case still 
 
 That's algebra, not induction. `nlinarith` (or `ring`, or `linear_combination`) is what finishes it. The pattern *induct, then algebra* is the most common shape of induction proof you'll see in this tutorial.
 
-## Exercise
+## From spec to implementation: verifying an iterative `sum_iter`
 
-Add a proof of the **odd-number identity**:
-
-> 1 + 3 + 5 + … + (2n − 1) = n²
-
-Define `sum_odd(n: nat) -> nat` recursively, then prove:
+Now the headline Tactus use case. We've proved `2·sum_to(n) = n·(n+1)`. Suppose we write an iterative Rust function that's *supposed* to compute the same thing. Can we verify it against the math?
 
 ```rust
-proof fn sum_odd_is_square(n: nat)
-    ensures sum_odd(n) == n * n
+#[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; nlinarith)")]
+fn sum_iter(n: u64) -> (r: u64)
+    requires n <= 1000
+    ensures 2 * r == n * (n + 1)
+{
+    let mut result: u64 = 0;
+    let mut i: u64 = 0;
+    while i < n
+        invariant
+            i <= n,
+            n <= 1000,
+            2 * result == i * (i + 1),
+            result <= 1001 * 1001,
+        decreases n - i
+    {
+        i = i + 1;
+        result = result + i;
+    }
+    result
+}
 ```
 
-The structure is exactly like `sum_formula`. If you get stuck, the base case is `sum_odd(0) == 0`, and in the inductive step, `sum_odd(k+1) = sum_odd(k) + (2(k+1) - 1) = sum_odd(k) + 2k + 1`.
+Three pieces to read:
+
+- **`#[verifier::tactus_auto]`** tells Tactus to auto-generate verification conditions for this exec fn (loop invariants, overflow checks, postcondition). Without it, Tactus would treat the body as opaque.
+- **The `invariant` clauses** are what the verifier checks holds at every loop iteration — *and* what's available as hypotheses when discharging the postcondition. The key one is `2 * result == i * (i + 1)`, the closed form we already know is correct from `sum_formula`.
+- **`decreases n - i`** is the termination measure. The loop body must strictly decrease it; here `i = i + 1` does.
+
+### What the verifier asks for
+
+Tactus emits one Lean theorem per obligation. For this fn:
+
+1. **Loop invariant init** — at entry (`result = 0, i = 0`): does `2·0 = 0·1`? Yes, `omega` closes.
+2. **Loop invariant maintain** — given the invariant holds with `(i, result)`, does it hold with `(i + 1, result + (i + 1))`? Need to show `2·(result + (i + 1)) = (i + 1)·(i + 2)`. From the old invariant `2·result = i·(i + 1)`, this is a polynomial identity: `2·result + 2·(i + 1) = i·(i + 1) + 2·(i + 1) = (i + 1)·(i + 2)`. `nlinarith` solves it.
+3. **Overflow check** — `result + (i + 1) < 2⁶⁴`. The bound `result <= 1001 * 1001` plus `i <= n <= 1000` makes this trivial for omega.
+4. **Postcondition** — at exit (`i == n` from `i <= n` + `¬(i < n)`): substitute `i := n` in the invariant to get `2·r = n·(n + 1)`. omega does the substitution.
+
+### The `tactus_tactic` line
+
+The default closer is `rfl | decide | omega | simp_all | tactus_case_split | fail`. None of those handles nonlinear arithmetic — `omega` is linear-only, `simp_all` doesn't know polynomial identities. So the maintain step (item 2) would fail.
+
+The `tactus_tactic` attribute lets us extend the closer:
+
+```rust
+#[verifier::tactus_tactic("first | tactus_auto | (intros; nlinarith)")]
+```
+
+This says "try the default `tactus_auto` first; if it fails, introduce the hypotheses and try `nlinarith`." `intros; nlinarith` is the magic incantation for nonlinear obligations: `intros` brings the local context (loop variables, invariants) into scope, then `nlinarith` (from `Mathlib.Tactic.Linarith`) discharges polynomial identities.
+
+### Why this is the moment Tactus delivers
+
+We just used a recursive *mathematical* definition (`sum_to`), proved a closed-form identity about it (`sum_formula`), and then verified that an *iterative Rust function* satisfies that identity. The Rust code can be compiled and run; the verification guarantees it computes the right value for any input up to the precondition's bound.
+
+A pure runtime test would tell you the function happens to be right on the inputs you tested. The verification tells you it's right on *every* input — and any future refactor that breaks the math will fail to verify before it can ship.
+
+## Exercises
+
+1. **Odd-number identity.** Prove `1 + 3 + 5 + … + (2n − 1) = n²` by defining `sum_odd(n: nat)` recursively and following the same `induction` shape as `sum_formula`. The base case is `sum_odd(0) == 0`; the inductive step uses `sum_odd(k + 1) = sum_odd(k) + (2k + 1)`.
+
+2. **Iterative `sum_odd_iter`.** Write a loop that accumulates the odd-number sum and verify it against `r == n * n`. The structure mirrors `sum_iter` but with a different invariant.
+
+3. **Tighten the precondition.** `sum_iter` requires `n <= 1000`. What's the largest `n` for which `2 * n * (n + 1)` fits in `u64`? Bump the precondition to that bound and see if the verifier still closes (you may need to adjust the `result <= …` invariant accordingly).
 
 ## What's next
 
-Chapter 2 moves from "spec fns talking to themselves" to the signature Tactus use case: **a Rust function with an iterative implementation, proven equivalent to a recursive mathematical spec**. We'll start with factorial.
+Chapter 2 turns to Fibonacci identities — same `induction` machinery, but with two base cases and an extra `rw` for handling Tactus's `.toNat` wrappers. It's the warm-up for strong induction in Chapter 3.
