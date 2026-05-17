@@ -68,8 +68,19 @@ proof fn sum_formula(n: nat)
     ensures 2 * sum_to(n) == n * (n + 1)
 by {
     induction n with
-    | zero => unfold sum_to; simp
-    | succ k ih => unfold sum_to; simp; nlinarith [ih]
+    | zero => unfold sum_to; decide
+    | succ k ih =>
+        unfold sum_to
+        -- Eliminate the `if k + 1 == 0 then 0 else …` branch (the
+        -- condition is false). `rw [if_neg …]` is preferable to a bare
+        -- `simp` here: `simp` is governed by Mathlib's evolving
+        -- `@[simp]` set, so a future Mathlib update could change what
+        -- shape it leaves the goal in. `if_neg` is a stable core lemma.
+        rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
+        -- Simplify `((k + 1) as nat - 1) as nat` (Tactus renders the
+        -- spec fn's `(n - 1) as nat` as `Int.toNat (↑n - 1)`).
+        rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
+        nlinarith [ih]
 }
 
 // -------- Iterative implementation ----------------------------------------
@@ -81,22 +92,20 @@ by {
 // The postcondition `2 * r == n * (n + 1)` is the same closed form we
 // proved equivalent to `sum_to(n)` above.
 //
-// Three things make this work:
-//   - The loop **invariant** captures what's true at every iteration:
-//     `2 * result == i * (i + 1)`. The loop maintains it; at exit
-//     `i == n`, giving us the postcondition.
-//   - The **decreases** clause proves termination: `n - i` strictly
-//     decreases on each iteration.
-//   - The `tactus_tactic` attribute extends the default closer with
-//     `intros; nlinarith` so the polynomial maintain step
-//     (`2 * (result + (i+1)) == (i+1) * (i+2)`) can close.
+// The loop **invariant** captures what's true at every iteration:
+// `2 * result == i * (i + 1)`. The loop maintains it; at exit `i == n`,
+// giving us the postcondition. The **decreases** clause `n - i` proves
+// termination — it strictly decreases on each iteration.
 //
-// Without `nlinarith` we'd be stuck — `omega` handles linear
-// arithmetic only, and the maintain step is genuinely nonlinear
-// (it has a product of unknowns).
+// Two obligations need help beyond the default closer (`rfl | decide |
+// omega | simp_all`): the loop invariant maintain and the postcondition.
+// Both involve *nonlinear* arithmetic (a product `i * (i + 1)`), which
+// `omega` can't handle. We discharge each with a small `assert(P) by
+// { intros; nlinarith }` block at the right spot: two inside the loop
+// body (for the two invariants that survive an iteration), one after
+// the loop (for the postcondition).
 
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; nlinarith)")]
 fn sum_iter(n: u64) -> (r: u64)
     requires n <= 1000
     ensures 2 * r == n * (n + 1)
@@ -108,14 +117,22 @@ fn sum_iter(n: u64) -> (r: u64)
             i <= n,
             n <= 1000,
             2 * result == i * (i + 1),
-            // Bound `result` so the auto-tactic can discharge overflow
-            // on `result + i` without needing the closed-form maximum:
+            // Bound `result` so overflow on `result + i` is provable
+            // without re-deriving the closed-form maximum each time:
             result <= 1001 * 1001,
         decreases n - i
     {
         i = i + 1;
         result = result + i;
+        // Re-establish the two nonlinear invariants for the next
+        // iteration. omega handles the linear ones automatically.
+        assert(2 * result == i * (i + 1)) by { intros; nlinarith };
+        assert(result <= 1001 * 1001) by { intros; nlinarith };
     }
+    // At exit `i == n`. Combined with the invariant, that gives the
+    // postcondition — but the substitution is nonlinear, so omega
+    // alone can't close it.
+    assert(2 * result == n * (n + 1)) by { intros; nlinarith };
     result
 }
 

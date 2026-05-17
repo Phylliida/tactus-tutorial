@@ -27,6 +27,29 @@ Expected output: `verification results:: N verified, 0 errors`.
 
 See [`tactus/DESIGN.md`](../tactus/DESIGN.md) for the architecture.
 
+## A note on `simp`
+
+Mathlib convention says **never use `simp` for an intermediate step** — only as a closing tactic. The reason: `simp`'s behavior is governed by Mathlib's `@[simp]` lemma set, which evolves. Code that calls `simp` and then expects a *specific* intermediate goal shape for subsequent tactics will break when a future Mathlib update changes what `simp` produces.
+
+The chapters here follow this convention. Where chapter 1 might naively write:
+
+```rust
+unfold sum_to; simp; nlinarith [ih]   -- ✗ intermediate simp
+```
+
+we instead write:
+
+```rust
+unfold sum_to
+rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
+rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
+nlinarith [ih]                          -- ✓ pinned lemmas all the way down
+```
+
+It's more verbose, but every step is stable: `if_neg` is a core Lean lemma, and the `rw [show … from by omega]` form names *exactly* what's being rewritten.
+
+`simp` as a *closing* tactic is fine — that's just "if simp doesn't close it, the proof fails," which is the same failure mode as any other closer. You'll see closing `simp` calls in `fib_seven` (computing a concrete value), the base cases of `fib_addition`, and a few helper lemmas. The chapters flag intermediate-vs-closing in inline comments where it matters.
+
 ## Planned chapters
 
 The arc moves from "induction in one line" to "verify a real Rust algorithm against a mathematical spec." Starred (⭐) examples are the headline cases that most clearly show Lean's advantage over Z3.
