@@ -52,16 +52,18 @@ proof fn fib_nonneg(n: int)
 by {
     if h : n <= 0 then (
         unfold fib
-        simp [h]
+        rw [if_pos h]
     ) else if h1 : n = 1 then (
         unfold fib
-        subst h1
-        decide
+        rw [if_neg (by omega : ¬(n ≤ 0))]
+        rw [if_pos h1]
+        omega
     ) else (
         have ih1 := fib_nonneg (n - 1)
         have ih2 := fib_nonneg (n - 2)
         unfold fib
-        simp [h, h1]
+        rw [if_neg h]
+        rw [if_neg h1]
         omega
     )
 }
@@ -83,9 +85,12 @@ by {
     | zero => unfold sum_fib; unfold fib; decide
     | succ k ih =>
         unfold sum_fib
-        simp
+        rw [if_neg (by omega : ¬(↑k + 1 ≤ (0 : Int)))]
+        rw [show ((↑k + 1 : Int) - 1) = ↑k from by omega]
         conv_rhs => unfold fib
-        simp
+        rw [if_neg (by omega : ¬(↑k + 1 + 1 ≤ (0 : Int)))]
+        rw [if_neg (by omega : (↑k + 1 + 1 : Int) ≠ 1)]
+        rw [show ((↑k + 1 + 1 : Int) - 1) = ↑k + 1 from by omega]
         rw [show ((↑k + 1 + 1 : Int) - 2) = ↑k from by omega]
         omega
     | pred k _ => omega

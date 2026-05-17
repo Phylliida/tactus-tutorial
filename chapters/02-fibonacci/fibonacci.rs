@@ -57,9 +57,16 @@ by {
     | zero => omega
     | succ k ih =>
         unfold fib
+        -- Eliminate `if k + 1 = 0 then 0 else …` (k + 1 ≥ 1 trivially).
+        -- `rw [if_neg …]` rather than `simp` here for stability under
+        -- future Mathlib upgrades.
+        rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
         by_cases h : k = 0
-        · subst h; simp
-        · simp [h]
+        · subst h
+          -- k = 0, so k + 1 = 1, which the second `if` picks up.
+          rw [if_pos (by decide : (0 + 1 : Nat) = 1)]
+        · rw [if_neg (by omega : (k + 1 : Nat) ≠ 1)]
+          rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
           have hk : k >= 1 := by omega
           have ihk := ih hk
           omega
@@ -95,14 +102,20 @@ by {
     induction n with
     | zero => unfold sum_fib; unfold fib; decide
     | succ k ih =>
+        -- Unfold sum_fib once on the LHS, eliminate the `if k + 1 = 0`
+        -- branch, and clean up the `.toNat` arg of the recursive call.
         unfold sum_fib
-        simp
+        rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
+        rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
+
+        -- Unfold fib on the RHS one step. fib(k + 2) falls through the
+        -- two `if` base cases (k + 2 ≠ 0 and k + 2 ≠ 1), so we eliminate
+        -- both and simplify the two `.toNat` recursive-call args.
         conv_rhs => unfold fib
-        simp
-        -- The remaining `(↑k + 1 + 1 - 2).toNat` is just `k` — omega
-        -- knows this but can't see through the `.toNat` wrapper inside
-        -- `fib`, so we rewrite it explicitly.
-        rw [show ((↑k + 1 + 1 : Int) - 2).toNat = k from by omega]
+        rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 0)]
+        rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 1)]
+        rw [show ((↑(k + 1 + 1) : Int) - 1).toNat = k + 1 from by omega]
+        rw [show ((↑(k + 1 + 1) : Int) - 2).toNat = k from by omega]
         omega
 }
 
