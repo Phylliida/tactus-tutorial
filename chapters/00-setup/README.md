@@ -67,6 +67,34 @@ The script needs `lake` (Lean's package manager) and `lean` on `$PATH`. See the 
 
 The script creates `~/.tactus/lean-project/` containing a `lakefile.lean` and a `.lake/` directory with the precompiled `.olean` files. Tactus's verifier auto-detects this directory at runtime.
 
+## Step 4.5: Install the tutorial's helper lemmas
+
+Chapter 2 onward use `import TactusTutorialHelpers` for a small set of `@[simp]` lemmas that clean up the `(↑(k + 1) - 1).toNat` shapes that arise from Verus's `(n - 1) as nat` casts. These are unconditional rewrites that omega could trivially prove but doesn't traverse into function arguments to find — so they have to live as simp lemmas to fire automatically.
+
+The helper file lives at `tactus-tutorial/lean-helpers/TactusTutorialHelpers.lean`. To make it importable from your chapter files, symlink it into the Tactus lake project and register it in the lakefile:
+
+```bash
+# From the tutorial repo root:
+ln -sf "$(realpath lean-helpers/TactusTutorialHelpers.lean)" \
+    ../tactus/lean-project/TactusTutorialHelpers.lean
+
+# Edit ../tactus/lean-project/lakefile.lean to add the lib:
+#
+#     lean_lib TactusTutorialHelpers where
+#       srcDir := "."
+#
+# (Add right after the existing `lean_lib TactusCheck where ...` block.)
+```
+
+Then build the helpers once:
+
+```bash
+cd ../tactus/lean-project
+lake build TactusTutorialHelpers
+```
+
+Subsequent verifies pick it up automatically. Without this step, chapters that say `import TactusTutorialHelpers` fail with `unknown module prefix`.
+
 ## Step 5: Run a tutorial chapter
 
 From the tutorial repo root:
