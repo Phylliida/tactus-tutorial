@@ -13,6 +13,7 @@ use verus_builtin_macros::*;
 verus! {
 
 import Mathlib.Tactic.Linarith
+import TactusTutorialHelpers
 
 // -------- Fibonacci ------------------------------------------------------
 //
@@ -102,20 +103,17 @@ by {
     induction n with
     | zero => unfold sum_fib; unfold fib; decide
     | succ k ih =>
-        -- Unfold sum_fib once on the LHS, eliminate the `if k + 1 = 0`
-        -- branch, and clean up the `.toNat` arg of the recursive call.
+        -- Unfold once on each side, eliminate the if-base-cases, and
+        -- close. `TactusTutorialHelpers` provides @[simp] lemmas that
+        -- turn `(↑(k + 1) - 1).toNat` into `k` (and similar), so the
+        -- final `simp` handles the `.toNat` shapes automatically. The
+        -- only remaining bookkeeping is the explicit if-eliminations.
         unfold sum_fib
         rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
-        rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
-
-        -- Unfold fib on the RHS one step. fib(k + 2) falls through the
-        -- two `if` base cases (k + 2 ≠ 0 and k + 2 ≠ 1), so we eliminate
-        -- both and simplify the two `.toNat` recursive-call args.
         conv_rhs => unfold fib
         rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 0)]
         rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 1)]
-        rw [show ((↑(k + 1 + 1) : Int) - 1).toNat = k + 1 from by omega]
-        rw [show ((↑(k + 1 + 1) : Int) - 2).toNat = k from by omega]
+        simp
         omega
 }
 
