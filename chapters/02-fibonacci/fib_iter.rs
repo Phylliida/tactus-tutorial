@@ -74,7 +74,20 @@ by {
 proof fn fib_10_bound()
     ensures fib(10 as nat) <= 55
 by {
-    repeat (unfold fib; simp)
+    -- One unfold per recursion level down to the base cases, then
+    -- `simp` as the closer. (Avoid intermediate `simp` for stability.)
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    simp
 }
 
 #[verifier::tactus_auto]

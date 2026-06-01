@@ -129,7 +129,7 @@ by {
         -- Compute F_1, F_2 explicitly, then unfold F_{n+2}.
         subst h1
         have f1 : fib 1 = 1 := by unfold fib; simp
-        have f2 : fib 2 = 1 := by repeat (unfold fib; simp)
+        have f2 : fib 2 = 1 := by unfold fib; unfold fib; unfold fib; simp
         have step : fib (n + 2) = fib (n + 1) + fib n := by
             conv_lhs => unfold fib
             rw [if_neg (by omega : (n + 2 : Nat) ≠ 0)]
