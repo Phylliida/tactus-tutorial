@@ -106,7 +106,7 @@ From the tutorial repo root:
 Expected output:
 
 ```
-verification results:: 8 verified, 0 errors
+verification results:: 9 verified, 0 errors
 ```
 
 If you see that, everything's working. Try Chapter 2 next:

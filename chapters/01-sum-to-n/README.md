@@ -8,7 +8,7 @@ The full code is in [`sum_to_n.rs`](sum_to_n.rs). To verify it:
 
 ```bash
 ../../../tactus/source/target-verus/release/verus sum_to_n.rs
-# verification results:: 8 verified, 0 errors
+# verification results:: 9 verified, 0 errors
 ```
 
 ## The specification
@@ -52,8 +52,12 @@ proof fn sum_formula(n: nat)
     ensures 2 * sum_to(n) == n * (n + 1)
 by {
     induction n with
-    | zero => unfold sum_to; simp
-    | succ k ih => unfold sum_to; simp; nlinarith [ih]
+    | zero => unfold sum_to; decide
+    | succ k ih =>
+        unfold sum_to
+        rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
+        rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
+        nlinarith [ih]
 }
 ```
 
@@ -61,11 +65,13 @@ The `by { ... }` block is **Lean tactic syntax**, passed through Tactus verbatim
 
 1. **`induction n`** does case analysis on the natural number `n`. Lean's natural numbers are defined as either `zero` or `succ k` (where `k` is itself a natural). Each `|` arm handles one of those cases.
 
-2. **`zero` case** — the goal is `2 * sum_to(0) == 0 * (0 + 1)`, i.e., `0 == 0`. `unfold sum_to` exposes the body of the definition (so Lean knows `sum_to(0) = 0`), and `simp` cleans up the arithmetic.
+2. **`zero` case** — the goal is `2 * sum_to(0) == 0 * (0 + 1)`, i.e., `0 == 0`. `unfold sum_to` exposes the body of the definition (so Lean knows `sum_to(0) = 0`), and `decide` settles the concrete arithmetic.
 
-3. **`succ k ih` case** — `k : Nat` is the predecessor, and `ih : 2 * sum_to(k) == k * (k + 1)` is the **induction hypothesis** automatically brought into scope. The goal becomes `2 * sum_to(k+1) == (k+1) * (k+2)`.
-   - `unfold sum_to; simp` rewrites `sum_to(k+1)` to `k + 1 + sum_to(k)`.
-   - `nlinarith [ih]` solves the resulting polynomial identity, using `ih` as a fact.
+3. **`succ k ih` case** — `k : Nat` is the predecessor, and `ih : 2 * sum_to(k) == k * (k + 1)` is the **induction hypothesis** automatically brought into scope. The goal becomes `2 * sum_to(k+1) == (k+1) * (k+2)`. Three steps clear it:
+   - `unfold sum_to` exposes the body, leaving `2 * (if k + 1 == 0 then 0 else (k + 1) + sum_to(…)) == …`.
+   - `rw [if_neg …]` discharges the `if` — the condition `k + 1 = 0` is false. We use `if_neg`, a stable core lemma, rather than a bare `simp`: `simp`'s behavior is governed by Mathlib's evolving `@[simp]` set, so leaning on it for an *intermediate* step makes the proof fragile across Mathlib updates (see the [note on `simp`](../../README.md#a-note-on-simp)).
+   - `rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]` cleans up a cast wrapper. Tactus renders the spec's `(n - 1) as nat` as `Int.toNat (↑n - 1)`; this rewrite collapses `((k+1) - 1).toNat` back to `k`, so the recursive call reads as `sum_to(k)` and matches `ih`. (You'll meet this `.toNat` wrinkle properly in Chapter 2 — here it's just one line.)
+   - `nlinarith [ih]` finishes the polynomial identity `2 * (k + 1 + sum_to k) == (k + 1) * (k + 2)`, using `ih` as a fact.
 
 `nlinarith` is a Mathlib tactic that handles **nonlinear arithmetic** — exactly the kind of `(k+1)(k+2)` expansion needed here. (It's why we `import Mathlib.Tactic.Linarith` at the top of the file.)
 

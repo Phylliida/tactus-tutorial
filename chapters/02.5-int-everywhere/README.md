@@ -54,16 +54,18 @@ proof fn fib_nonneg(n: int)
 by {
     if h : n <= 0 then (
         unfold fib
-        simp [h]
+        rw [if_pos h]
     ) else if h1 : n = 1 then (
         unfold fib
-        subst h1
-        decide
+        rw [if_neg (by omega : ¬(n ≤ 0))]
+        rw [if_pos h1]
+        omega
     ) else (
         have ih1 := fib_nonneg (n - 1)
         have ih2 := fib_nonneg (n - 2)
         unfold fib
-        simp [h, h1]
+        rw [if_neg h]
+        rw [if_neg h1]
         omega
     )
 }
@@ -71,11 +73,11 @@ by {
 
 This is a different shape from `induction n with | zero | succ k ih`. Instead of relying on Lean's built-in induction principle, the proof is a **function that calls itself on smaller arguments**. The `decreases (n + 1) as nat` clause is what convinces Lean the recursion terminates — at each recursive call, `(n + 1) as nat` strictly decreases.
 
-The three branches correspond to the three branches of `fib` itself:
+The three branches correspond to the three branches of `fib` itself. Each picks the right branch of the unfolded `if`-cascade with `rw [if_pos …]` / `rw [if_neg …]` — the stable, `simp`-free way to step through a definition (see the [note on `simp`](../../README.md#a-note-on-simp)):
 
-- `n ≤ 0`: `fib(n) = 0`, so `0 ≥ 0` trivially.
-- `n = 1`: `fib(1) = 1`, so `1 ≥ 0` trivially.
-- `n ≥ 2`: invoke `fib_nonneg(n - 1)` and `fib_nonneg(n - 2)` to learn both sub-values are non-negative, then `omega` closes.
+- `n ≤ 0`: `rw [if_pos h]` selects `fib(n) = 0`, so the goal `0 ≥ 0` is closed outright.
+- `n = 1`: `rw [if_neg …]` drops the `n ≤ 0` branch, `rw [if_pos h1]` selects `fib(1) = 1`, and `omega` finishes `1 ≥ 0`.
+- `n ≥ 2`: invoke `fib_nonneg(n - 1)` and `fib_nonneg(n - 2)` for the two IHs; the two `rw [if_neg …]` drop both base cases to expose `fib(n) = fib(n-1) + fib(n-2)`; then `omega` closes from the non-negative sub-values. (Note there's no `.toNat` to clean up — that's the whole point of the `int` encoding.)
 
 Self-recursive proofs are how strong induction is usually expressed in Lean. The "induction hypothesis at any smaller value" is just "you can call yourself."
 
@@ -94,9 +96,12 @@ by {
     | zero => unfold sum_fib; unfold fib; decide
     | succ k ih =>
         unfold sum_fib
-        simp
+        rw [if_neg (by omega : ¬(↑k + 1 ≤ (0 : Int)))]
+        rw [show ((↑k + 1 : Int) - 1) = ↑k from by omega]
         conv_rhs => unfold fib
-        simp
+        rw [if_neg (by omega : ¬(↑k + 1 + 1 ≤ (0 : Int)))]
+        rw [if_neg (by omega : (↑k + 1 + 1 : Int) ≠ 1)]
+        rw [show ((↑k + 1 + 1 : Int) - 1) = ↑k + 1 from by omega]
         rw [show ((↑k + 1 + 1 : Int) - 2) = ↑k from by omega]
         omega
     | pred k _ => omega
@@ -106,7 +111,7 @@ by {
 Two differences from Chapter 2's version:
 
 1. **A `pred k _` case.** Lean's `induction` on an `Int` parameter produces three subcases: `zero`, `succ` (positive direction), `pred` (negative direction). The `requires n >= 0` makes the `pred` case vacuous — `omega` notices the contradiction and closes the goal.
-2. **The `rw` target.** In Chapter 2 we rewrote `((↑k + 1 + 1).toNat - 2).toNat = k`. Here it's `((↑k + 1 + 1) - 2 : Int) = ↑k` — no `.toNat`, pure arithmetic over `Int`. The same rewrite-via-omega pattern, but the goal it's solving is one step simpler.
+2. **The rewrites are pure `Int`.** The `succ` case still steps through both definitions with `rw [if_neg …]` (dropping the `n ≤ 0` and `n == 1` base cases) and `rw [show … from by omega]` (simplifying the recursive-call indices) — the same `simp`-free machinery as Chapter 2. The difference: every `show` target here is plain `Int` arithmetic like `(↑k + 1 + 1) - 2 = ↑k`, with **no `.toNat` wrapper**. Chapter 2's `nat` version had to collapse `.toNat` shapes (via the `TactusTutorialHelpers` `simp only` lemmas); here there's nothing to collapse, so no helper import is needed — but it costs a couple of extra `rw [show …]` lines that `simp only` folded into one call there.
 
 ## Side-by-side comparison
 
@@ -132,7 +137,7 @@ If you ever return to the "iterative Rust function matches recursive math spec" 
 
 ## What's next
 
-Chapter 3 (planned) returns to Chapter 2's `nat` encoding and tackles the **Fibonacci addition formula**:
+Chapter 3 returns to Chapter 2's `nat` encoding and tackles the **Fibonacci addition formula**:
 
 > F_{m+n+1} = F_m · F_n + F_{m+1} · F_{n+1}
 

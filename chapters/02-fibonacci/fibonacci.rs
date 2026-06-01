@@ -30,16 +30,20 @@ spec fn fib(n: nat) -> nat
 
 // -------- Concrete value -------------------------------------------------
 //
-// fib(7) = 13. `repeat (unfold fib; simp)` keeps unfolding the
-// definition until every `fib` call reduces to a literal — eight
-// unfold steps in this case.
+// fib(7) = 13. Unfold `fib` once per recursion level (eight steps for
+// fib 7), then close with a single `simp` that evaluates the resulting
+// if-cascade to a literal.
 
 proof fn fib_seven()
     ensures fib(7) == 13
 by {
     -- Eight explicit unfolds (one per recursion level down to the base
-    -- cases for fib 7), then `simp` as the closing tactic. Avoiding
-    -- intermediate `simp` keeps the proof stable across Mathlib updates.
+    -- cases for fib 7), then `simp` as the closing tactic. Two reasons
+    -- not to write `repeat (unfold fib; simp)`: the `simp` would become
+    -- an intermediate step (fragile across Mathlib's evolving @[simp]
+    -- set), and `repeat unfold fib` over-expands the dead else-branches
+    -- of the decided base cases, blowing up exponentially (fib 10 won't
+    -- finish within Lean's heartbeat budget).
     unfold fib
     unfold fib
     unfold fib
@@ -103,10 +107,12 @@ spec fn sum_fib(n: nat) -> nat
 //
 // The proof is one-step induction. The inductive step uses the
 // Fibonacci recurrence `fib(k+2) = fib(k+1) + fib(k)`. After
-// `unfold fib`, Verus's `(n - 1) as nat` cast renders in Lean
-// as `(↑(...) - ...).toNat`. `simp` handles most of these
-// automatically; one residue remains, and we close it with a
-// short `omega` rewrite.
+// `unfold fib`, Verus's `(n - 1) as nat` cast renders in Lean as
+// `(↑(...) - ...).toNat`. We drop the base-case `if`s with
+// `rw [if_neg …]` and collapse the `.toNat` shapes with
+// `simp only [TactusTut.*]` (pinned helper lemmas — stable, since
+// `simp only` ignores Mathlib's evolving default `@[simp]` set),
+// then `omega` closes.
 
 proof fn sum_fib_identity(n: nat)
     ensures sum_fib(n) + 1 == fib(n + 1)

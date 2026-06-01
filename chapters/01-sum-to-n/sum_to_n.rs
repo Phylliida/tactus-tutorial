@@ -98,15 +98,18 @@ by {
 // giving us the postcondition. The **decreases** clause `n - i` proves
 // termination — it strictly decreases on each iteration.
 //
-// Two obligations need help beyond the default closer (`rfl | decide |
-// omega | simp_all`): the loop invariant maintain and the postcondition.
-// Both involve *nonlinear* arithmetic (a product `i * (i + 1)`), which
-// `omega` can't handle. We discharge each with a small `assert(P) by
-// { intros; nlinarith }` block at the right spot: two inside the loop
-// body (for the two invariants that survive an iteration), one after
-// the loop (for the postcondition).
+// Some obligations need help beyond the default closer (`rfl | decide |
+// omega | simp_all | …`): the loop-invariant maintain step and the
+// postcondition both involve *nonlinear* arithmetic (the product
+// `i * (i + 1)`), which `omega` can't handle. Rather than scatter
+// `assert(P) by { … }` blocks through the body, we extend the whole-fn
+// closer once with `#[verifier::tactus_tactic(...)]`: try the default
+// `tactus_auto`, and on anything it leaves open, run `intros; nlinarith`.
+// `intros` brings the loop variables and invariants into scope; then
+// `nlinarith` (from Mathlib) discharges the polynomial obligations.
 
 #[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; nlinarith)")]
 fn sum_iter(n: u64) -> (r: u64)
     requires n <= 1000
     ensures 2 * r == n * (n + 1)
@@ -118,22 +121,14 @@ fn sum_iter(n: u64) -> (r: u64)
             i <= n,
             n <= 1000,
             2 * result == i * (i + 1),
-            // Bound `result` so overflow on `result + i` is provable
+            // Bound `result` so the overflow check on `result + i` closes
             // without re-deriving the closed-form maximum each time:
             result <= 1001 * 1001,
         decreases n - i
     {
         i = i + 1;
         result = result + i;
-        // Re-establish the two nonlinear invariants for the next
-        // iteration. omega handles the linear ones automatically.
-        assert(2 * result == i * (i + 1)) by { intros; nlinarith };
-        assert(result <= 1001 * 1001) by { intros; nlinarith };
     }
-    // At exit `i == n`. Combined with the invariant, that gives the
-    // postcondition — but the substitution is nonlinear, so omega
-    // alone can't close it.
-    assert(2 * result == n * (n + 1)) by { intros; nlinarith };
     result
 }
 

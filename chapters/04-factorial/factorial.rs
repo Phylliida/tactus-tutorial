@@ -4,11 +4,13 @@
 // multiplicative (`fact(n + 1) = (n + 1) * fact(n)`) rather than
 // additive. That difference matters in three places:
 //
-//   1. Monotonicity. `fact_monotone` follows from `fact(m) = m * fact(m-1)`
-//      and `fact(m - 1) ≥ 1` (so `m * fact(m-1) ≥ 1 * fact(m-1)`).
+//   1. Monotonicity. `fact_monotone` chains one-step growth: from
+//      `fact(m) = m * fact(m-1)` and `m >= 1` we get
+//      `m * fact(m-1) >= 1 * fact(m-1) = fact(m-1)` (Nat.mul_le_mul_right),
+//      and the IH carries `fact(k) <= fact(m-1)`.
 //
 //   2. Overflow. `result * (i + 1)` for u64 needs a bound; we use
-//      `fact_monotone` and a concrete `fact(10) ≤ 3628800` to discharge.
+//      `fact_monotone` and a concrete `fact(10) <= 3628800` to discharge.
 //
 //   3. Maintain step. After `result = result * (i + 1)`, we need
 //      `result == fact(i + 1)`. The chain
@@ -18,7 +20,11 @@
 //      `assert(result * (i + 1) == fact((i + 1) as nat)) by { nlinarith }`
 //      so the maintain step closes with `omega` after the assignment.
 //
-// Three helpers: `fact_pos` (always ≥ 1), `fact_monotone`, `fact_10_bound`.
+// Helpers: `fact_monotone` and `fact_10_bound` feed the overflow bound.
+// `fact_pos` (`n! >= 1`) is a standalone positivity fact — the proofs
+// above don't actually need it (monotonicity goes through `m >= 1`), but
+// it's a clean example of the self-recursive proof shape and a fact worth
+// having on the shelf.
 
 use verus_builtin::*;
 use verus_builtin_macros::*;
@@ -102,7 +108,12 @@ fn factorial(n: u64) -> (r: u64)
             result <= 3628800,
         decreases n - i
     {
-        // (1) recurrence
+        // (1) recurrence: fact(i+1) = (i+1) * fact(i).
+        //   `rec_app` unfolds fact once, dropping the `== 0` base case.
+        //   `e` rewrites the toNat-wrapped recursive index to `i.toNat`.
+        //   The goal is stated over Int (the loop vars are u64 → Int), but
+        //   `rec_app` is a Nat equation, so `zify` lifts it to Int and `e2`
+        //   normalizes the `(i+1).toNat` cast before `linarith` matches.
         assert(fact((i + 1) as nat) == (i + 1) * fact(i as nat)) by {
             intros
             have rec_app : fact ((i + 1 : Int).toNat) = (i + 1 : Int).toNat * fact ((↑((i + 1 : Int).toNat) : Int) - 1).toNat := by
@@ -111,7 +122,7 @@ fn factorial(n: u64) -> (r: u64)
             have e : ((↑((i + 1 : Int).toNat) : Int) - 1).toNat = i.toNat := by omega
             have e2 : ((i + 1 : Int).toNat : Int) = i + 1 := by omega
             rw [e] at rec_app
-            zify at rec_app
+            zify at rec_app   -- lift the Nat equation rec_app up to Int
             rw [e2] at rec_app
             linarith [rec_app]
         };
