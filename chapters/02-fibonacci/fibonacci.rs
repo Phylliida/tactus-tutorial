@@ -37,7 +37,18 @@ spec fn fib(n: nat) -> nat
 proof fn fib_seven()
     ensures fib(7) == 13
 by {
-    repeat (unfold fib; simp)
+    -- Eight explicit unfolds (one per recursion level down to the base
+    -- cases for fib 7), then `simp` as the closing tactic. Avoiding
+    -- intermediate `simp` keeps the proof stable across Mathlib updates.
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    simp
 }
 
 // -------- Warm-up: fib is positive on n >= 1 -----------------------------
@@ -104,16 +115,18 @@ by {
     | zero => unfold sum_fib; unfold fib; decide
     | succ k ih =>
         -- Unfold once on each side, eliminate the if-base-cases, and
-        -- close. `TactusTutorialHelpers` provides @[simp] lemmas that
-        -- turn `(↑(k + 1) - 1).toNat` into `k` (and similar), so the
-        -- final `simp` handles the `.toNat` shapes automatically. The
-        -- only remaining bookkeeping is the explicit if-eliminations.
+        -- close. `simp only [TactusTut.*]` rewrites the `.toNat`
+        -- shapes via the pinned helper lemmas — `simp only` with an
+        -- explicit lemma list is stable across Mathlib updates (no
+        -- dependence on the evolving `@[simp]` set).
         unfold sum_fib
         rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
         conv_rhs => unfold fib
         rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 0)]
         rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 1)]
-        simp
+        simp only [TactusTut.toNat_succ_sub_one,
+                   TactusTut.toNat_succ_succ_sub_one,
+                   TactusTut.toNat_succ_succ_sub_two]
         omega
 }
 
