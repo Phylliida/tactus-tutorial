@@ -110,4 +110,4 @@ Pulling it all together with real Rust algorithms verified against mathematical 
 - Chapter 4: ✅ drafted (iterative factorial against recursive `fact` spec — landed after the synthetic-temp closer fix)
 - Chapter 5: not yet started
 
-The chapter order has shifted from the original outline: exec-fn verification (originally Chapter 2 with `factorial`) is deferred until Tactus's tooling for the `as nat`-into-recursive-spec-fn pattern matures. The proof-fn-only chapters in the meantime build up the techniques (induction, strong induction, rewriting) we'll want when we return to exec verification.
+The chapter order shifted from the original outline: exec-fn verification (originally slated for an early `factorial` chapter) was deferred while Tactus's `as nat`-into-recursive-spec-fn tooling matured, so the early chapters are proof-fn-first and build up the techniques (induction, strong induction, rewriting). That tooling has since landed, and exec verification now appears throughout — `sum_iter` (Chapter 1), `fib_iter` (Chapter 2), and `factorial` (Chapter 4).

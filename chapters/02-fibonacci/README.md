@@ -33,17 +33,27 @@ Two things changed since chapter 1's `sum_to`:
 
 ## Concrete check: `fib(7) = 13`
 
-A useful sanity check. The proof is one line, but it's not a one-step `unfold`:
+A useful sanity check — and the first place the `simp`-robustness rule bites. The proof unfolds `fib` once per recursion level, then closes with a single `simp`:
 
 ```rust
 proof fn fib_seven()
     ensures fib(7) == 13
 by {
-    repeat (unfold fib; simp)
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    unfold fib
+    simp
 }
 ```
 
-`repeat (unfold fib; simp)` keeps unfolding `fib` and simplifying until every `fib` call has reduced to a literal. For `fib(7)` that takes about eight iterations — Lean does it transparently.
+Eight explicit `unfold fib`s walk the recursion down to the base cases, and the closing `simp` evaluates the resulting `if`-cascade to the literal `13`. A *closing* `simp` is fine — if it doesn't finish, the proof just fails, the same failure mode as any other closer.
+
+You might expect `repeat (unfold fib; simp)` to do this in one line. It has two problems. The `simp` would now be an *intermediate* step (the `repeat` runs it between unfolds), which the [note on `simp`](../../README.md#a-note-on-simp) warns against. And — worse for `fib` specifically — `repeat unfold fib` keeps unfolding the `fib` calls sitting in the *dead* `else`-branches of already-decided base cases (`if 0 == 0 then 0 else fib(…) + fib(…)`), so the term blows up exponentially; for `fib(10)` it exhausts Lean's heartbeat budget. The fixed-length unfold list stops before that and lets `simp` prune the dead branches. (Chapter 4's `fact` proof *can* use `repeat unfold fact`, because `fact` has a single recursive call and no dead branches to over-expand.)
 
 ## Lemma 1: `fib(n) ≥ 1` for `n ≥ 1`
 
@@ -62,9 +72,12 @@ by {
     | zero => omega
     | succ k ih =>
         unfold fib
+        rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
         by_cases h : k = 0
-        · subst h; simp
-        · simp [h]
+        · subst h
+          rw [if_pos (by decide : (0 + 1 : Nat) = 1)]
+        · rw [if_neg (by omega : (k + 1 : Nat) ≠ 1)]
+          rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
           have hk : k >= 1 := by omega
           have ihk := ih hk
           omega
@@ -74,11 +87,13 @@ by {
 A few things worth noticing:
 
 - **`induction n`** is the same tactic from chapter 1. The `zero` case is vacuous here because the `requires n >= 1` hypothesis contradicts `n = 0` — `omega` spots that and closes the goal.
-- **`by_cases h : k = 0`** introduces a case split on whether `k` is zero. The two `·` bullets handle each branch.
-- **`simp [h]`** uses the hypothesis `h : ¬(k = 0)` to simplify the inner `if k = 0` away.
-- **`have ihk := ih hk`** instantiates the induction hypothesis. `ih` has type `k ≥ 1 → fib k ≥ 1`; supplying `hk : k ≥ 1` gives us `ihk : fib k ≥ 1`. Now `omega` can close the arithmetic.
+- **`unfold fib` then `rw [if_neg …]`** exposes `fib(k+1)`'s body and drops its first base case (`k + 1 = 0` is false). As in chapter 1, we use `rw [if_neg …]` rather than `simp` so the step doesn't depend on Mathlib's evolving `@[simp]` set.
+- **`by_cases h : k = 0`** splits on whether `k` is zero; the two `·` bullets handle each branch:
+  - When `k = 0`: `subst h` rewrites, and the second base case fires — `rw [if_pos …]` picks the `n == 1` branch, leaving `fib(1) = 1 ≥ 1`.
+  - When `k ≠ 0`: `rw [if_neg …]` drops the second base case too, then `rw [show … toNat …]` collapses the cast on the recursive call so it reads as `fib k`.
+- **`have ihk := ih hk`** instantiates the induction hypothesis. `ih` has type `k ≥ 1 → fib k ≥ 1`; supplying `hk : k ≥ 1` gives `ihk : fib k ≥ 1`. Now `omega` closes the arithmetic, since `fib(k+1) = fib(k) + fib(k-1) ≥ fib(k) ≥ 1`.
 
-This kind of bookkeeping — case-split, instantiate IH, run omega — is the rhythm of most Fibonacci proofs.
+This rhythm — drop the base-case `if`s, fix the `.toNat` on each recursive call, instantiate the IH, run `omega` — is the shape of most Fibonacci proofs.
 
 ## Lemma 2: the sum identity
 
@@ -107,36 +122,27 @@ by {
     | zero => unfold sum_fib; unfold fib; decide
     | succ k ih =>
         unfold sum_fib
-        simp
+        rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
         conv_rhs => unfold fib
-        simp
-        rw [show ((↑k + 1 + 1 : Int) - 2).toNat = k from by omega]
+        rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 0)]
+        rw [if_neg (by omega : (k + 1 + 1 : Nat) ≠ 1)]
+        simp only [TactusTut.toNat_succ_sub_one,
+                   TactusTut.toNat_succ_succ_sub_one,
+                   TactusTut.toNat_succ_succ_sub_two]
         omega
 }
 ```
 
-Let's read the inductive step. After `unfold sum_fib; simp`, the goal looks like:
+This proof leans on `import TactusTutorialHelpers` (at the top of the file) — a handful of pinned `@[simp]` lemmas for the `.toNat` shapes; [Chapter 0](../00-setup/README.md#step-45-install-the-tutorials-helper-lemmas) covers installing it. Let's read the inductive step:
 
-```
-fib k + sum_fib k + 1 = fib (k + 1 + 1)
-```
-
-We unfold `fib` on the **right-hand side only** (via `conv_rhs => unfold fib`), exposing the recurrence:
-
-```
-fib k + sum_fib k + 1 = fib (k + 1) + fib ((↑k + 1 + 1 - 2).toNat)
-```
-
-Two arithmetic noisy bits remain:
-
-1. `fib (k + 1)` — this matches `ih`'s right side, so we'll feed both into `omega`.
-2. `fib ((↑k + 1 + 1 - 2).toNat)` — should be `fib k`, but the `.toNat` wrapper hides it.
-
-The `rw [show ((↑k + 1 + 1 : Int) - 2).toNat = k from by omega]` rewrite says: "*establish the equation* `(↑k + 1 + 1 - 2).toNat = k` *using omega, then rewrite with it*." That collapses the second term to `fib k`. With both sides now in terms of `fib k`, `fib (k+1)`, and `sum_fib k`, `omega` closes using the induction hypothesis.
+- **`unfold sum_fib` then `rw [if_neg …]`** exposes `sum_fib(k+1)`'s body and drops its base case (`k + 1 = 0` is false). The left side is now `fib ((↑(k+1) - 1).toNat) + sum_fib ((↑(k+1) - 1).toNat) + 1` — `.toNat` casts still attached.
+- **`conv_rhs => unfold fib`** unfolds `fib` on the **right-hand side only**, and the two `rw [if_neg …]` drop *its* two base cases (`k + 1 + 1` is neither `0` nor `1`), exposing the recurrence `fib ((↑(k+1+1) - 1).toNat) + fib ((↑(k+1+1) - 2).toNat)`.
+- **`simp only [TactusTut.toNat_succ_sub_one, …]`** collapses all three `.toNat` shapes at once, using the pinned helper lemmas: the goal becomes `fib k + sum_fib k + 1 = fib (k + 1) + fib k`. `simp only` with an *explicit* lemma list is stable — it never consults Mathlib's evolving default `@[simp]` set, so it's exempt from the [intermediate-`simp` caution](../../README.md#a-note-on-simp).
+- **`omega`** closes using the induction hypothesis `ih : sum_fib k + 1 = fib (k + 1)`.
 
 ### Where does `.toNat` come from?
 
-It's how Tactus lowers Verus's `(n - 1) as nat` cast. In Verus, `n - 1` for a `nat` is widened to `int` (so it can go negative), and the `as nat` cast brings it back to `nat`, saturating at 0 if it was negative. The Lean rendering is faithful to this: `Int.toNat`. Inside a fully-typed proof state, the wrappers add visual noise; `omega` reasons through them when the goal is pure arithmetic, but not when they're nested inside a function call like `fib (...).toNat`. The little `rw` is the bridge.
+It's how Tactus lowers Verus's `(n - 1) as nat` cast. In Verus, `n - 1` for a `nat` is widened to `int` (so it can go negative), and the `as nat` cast brings it back to `nat`, saturating at 0 if it was negative. The Lean rendering is faithful to this: `Int.toNat`. Inside a fully-typed proof state, the wrappers add visual noise; `omega` reasons through them when the goal is pure arithmetic, but not when they're nested inside a function call like `fib ((…).toNat)`. Collapsing them is the recurring chore. Two equivalent bridges show up across the tutorial: an inline `rw [show <messy> = <clean> from by omega]` (used in `fib_pos` above and throughout Chapter 3), or — for the handful of *unconditional* shapes — the pinned `@[simp]` lemmas in `TactusTutorialHelpers` fired via `simp only [...]`, as here.
 
 You'll see this pattern often. The good news: it's always the same shape — `rw [show <messy_expr> = <clean_expr> from by omega]`.
 

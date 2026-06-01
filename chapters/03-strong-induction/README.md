@@ -10,7 +10,7 @@ The full code is in [`strong_induction.rs`](strong_induction.rs). Verify:
 
 ```bash
 ../../../tactus/source/target-verus/release/verus strong_induction.rs
-# verification results:: 5 verified, 0 errors
+# verification results:: 7 verified, 0 errors
 ```
 
 ## The encoding
@@ -70,19 +70,21 @@ The recursive case combines `ih1`, `ih2`, and two facts about `pow2`:
 ```rust
 have pow_unfold : pow2 n = pow2 (n - 1) + pow2 (n - 1) := by
     conv_lhs => unfold pow2
-    simp [hf0]
+    rw [if_neg hf0]
+    rw [show ((↑n : Int) - 1).toNat = n - 1 from by omega]
     omega
 
 have pow_mono : pow2 (n - 2) <= pow2 (n - 1) := by
     conv_rhs => unfold pow2
-    simp [hn1z]
-    have h_sub : n - 1 - 1 = n - 2 := by omega
-    rw [h_sub]
+    rw [if_neg hn1z]
+    rw [show ((↑(n - 1) : Int) - 1).toNat = n - 2 from by omega]
     omega
 ```
 
-- `pow_unfold` says `2^n = 2^(n-1) + 2^(n-1)`. We unfold `pow2` once on the LHS to get `2 * pow2(n-1)`, then `omega` knows that's the same as adding it to itself.
-- `pow_mono` says `2^(n-2) ≤ 2^(n-1)`. Unfolding on the RHS gives `2 * pow2(n-2)`, which is `≥ pow2(n-2)`. The `h_sub` rewrite cleans up Nat's `n - 1 - 1` to `n - 2`.
+Both follow the same `simp`-free shape from chapters 1–2 — unfold the definition, drop the base-case `if` with `rw [if_neg …]`, then collapse the `.toNat` cast on the recursive index with `rw [show … from by omega]`:
+
+- `pow_unfold` says `2^n = 2^(n-1) + 2^(n-1)`. Unfolding `pow2` on the LHS and dropping the `n == 0` branch (`hf0 : ¬(n = 0)`) leaves `2 * pow2(n-1)`; `omega` knows that's the same as adding it to itself.
+- `pow_mono` says `2^(n-2) ≤ 2^(n-1)`. Unfolding on the RHS and dropping the `n - 1 == 0` branch (`hn1z`) gives `2 * pow2(n-2)`, which is `≥ pow2(n-2)`. The `rw [show …]` turns the recursive index `(↑(n-1) - 1).toNat` into `n - 2` so the two sides line up for `omega`.
 
 These are inline `have` clauses — small enough that we don't want them as separate proof fns, and Tactus's current behavior is to verify each proof fn independently anyway (so cross-fn lemma reuse isn't yet ergonomic). Inlining keeps everything in one file.
 
@@ -90,13 +92,14 @@ These are inline `have` clauses — small enough that we don't want them as sepa
 
 ```rust
 conv_lhs => unfold fib
-simp [hf0, hf1]
+rw [if_neg hf0]
+rw [if_neg hf1]
+rw [show ((↑n : Int) - 1).toNat = n - 1 from by omega]
 rw [show ((↑n : Int) - 2).toNat = n - 2 from by omega]
-
 omega
 ```
 
-Unfold `fib` on the LHS, eliminate the two if-branches, fix up the `.toNat` wrapper on the second recursive call (the first one collapsed via `simp`). At this point the goal is:
+Unfold `fib` on the LHS, drop its two base cases with `rw [if_neg …]`, then collapse the `.toNat` wrappers on *both* recursive calls (`(↑n - 1).toNat → n - 1` and `(↑n - 2).toNat → n - 2`). At this point the goal is:
 
 ```
 fib(n - 1) + fib(n - 2) <= pow2 n
@@ -193,4 +196,4 @@ These are the **fast-doubling** formulas. They let you compute `F_n` in O(log n)
 
 ## What's next
 
-Chapter 4 (planned) returns to where Chapter 2 originally pointed: **iterative Rust algorithms matching recursive mathematical specs**. With strong induction in our toolkit and Tactus's `as nat` cast fix in place, the door is open.
+Chapter 4 returns to where Chapter 2 originally pointed: **iterative Rust algorithms matching recursive mathematical specs**. With strong induction in our toolkit and Tactus's `as nat` cast fix in place, the door is open — we verify an iterative `factorial` against the recursive `fact` spec.
