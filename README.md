@@ -107,6 +107,7 @@ Pulling it all together with real Rust algorithms verified against mathematical 
 - Chapter 2: ✅ drafted (Fibonacci identities — moved up from the original Chapter 4 slot)
 - Chapter 2.5 (optional): ✅ drafted (Fibonacci, encoded over `int` instead of `nat` — alternative encoding for readers who want to see the trade-off)
 - Chapter 3: ✅ drafted (strong induction via `fib(n) ≤ 2ⁿ`)
-- Chapters 4–5: not yet started
+- Chapter 4: ✅ drafted (iterative factorial against recursive `fact` spec — landed after the synthetic-temp closer fix)
+- Chapter 5: not yet started
 
 The chapter order has shifted from the original outline: exec-fn verification (originally Chapter 2 with `factorial`) is deferred until Tactus's tooling for the `as nat`-into-recursive-spec-fn pattern matures. The proof-fn-only chapters in the meantime build up the techniques (induction, strong induction, rewriting) we'll want when we return to exec verification.

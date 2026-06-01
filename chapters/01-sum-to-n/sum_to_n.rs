@@ -38,20 +38,21 @@ proof fn sum_zero()
     ensures sum_to(0) == 0
 by {
     unfold sum_to
-    simp
+    decide
 }
 
 proof fn sum_three()
     ensures sum_to(3) == 6
 by {
+    -- One `unfold` per level of recursion. `decide` then computes
+    -- the concrete value. (We avoid `repeat (unfold sum_to; simp)`
+    -- — simp is governed by Mathlib's evolving `@[simp]` set and
+    -- shouldn't appear between tactics that depend on its output.)
     unfold sum_to
-    simp
     unfold sum_to
-    simp
     unfold sum_to
-    simp
     unfold sum_to
-    simp
+    decide
 }
 
 // -------- The main theorem ------------------------------------------------
