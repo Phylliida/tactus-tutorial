@@ -10,7 +10,7 @@ The full code is in [`strong_induction.rs`](strong_induction.rs). Verify:
 
 ```bash
 ../../../tactus/source/target-verus/release/verus strong_induction.rs
-# verification results:: 7 verified, 0 errors
+# verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 
 ## The encoding

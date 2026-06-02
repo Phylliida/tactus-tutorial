@@ -8,7 +8,7 @@ The full code is in [`factorial.rs`](factorial.rs). To verify:
 
 ```bash
 ../../../tactus/source/target-verus/release/verus factorial.rs
-# verification results:: 9 verified, 0 errors
+# verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 
 ## The specification

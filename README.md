@@ -108,6 +108,6 @@ Pulling it all together with real Rust algorithms verified against mathematical 
 - Chapter 2.5 (optional): ✅ drafted (Fibonacci, encoded over `int` instead of `nat` — alternative encoding for readers who want to see the trade-off)
 - Chapter 3: ✅ drafted (strong induction via `fib(n) ≤ 2ⁿ`)
 - Chapter 4: ✅ drafted (iterative factorial against recursive `fact` spec — landed after the synthetic-temp closer fix)
-- Chapter 5: not yet started
+- Chapter 5: ✅ drafted (exponentiation by squaring against recursive `pow` — the O(log n) capstone)
 
-The chapter order shifted from the original outline: exec-fn verification (originally slated for an early `factorial` chapter) was deferred while Tactus's `as nat`-into-recursive-spec-fn tooling matured, so the early chapters are proof-fn-first and build up the techniques (induction, strong induction, rewriting). That tooling has since landed, and exec verification now appears throughout — `sum_iter` (Chapter 1), `fib_iter` (Chapter 2), and `factorial` (Chapter 4).
+The chapter order shifted from the original outline: exec-fn verification (originally slated for an early `factorial` chapter) was deferred while Tactus's `as nat`-into-recursive-spec-fn tooling matured, so the early chapters are proof-fn-first and build up the techniques (induction, strong induction, rewriting). That tooling has since landed, and exec verification now appears throughout — `sum_iter` (Chapter 1), `fib_iter` (Chapter 2), `factorial` (Chapter 4), and the fast-exponentiation capstone `pow_iter` (Chapter 5).
