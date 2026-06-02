@@ -103,17 +103,17 @@ From the tutorial repo root:
 ../tactus/source/target-verus/release/verus chapters/01-sum-to-n/sum_to_n.rs
 ```
 
-Expected output:
+Expected output (the `N` count varies by Tactus version — what matters is `0 errors`):
 
 ```
-verification results:: 9 verified, 0 errors
+verification results:: N verified, 0 errors
 ```
 
-If you see that, everything's working. Try Chapter 2 next:
+If you see `0 errors`, everything's working. Try Chapter 2 next:
 
 ```bash
 ../tactus/source/target-verus/release/verus chapters/02-fibonacci/fibonacci.rs
-# verification results:: 9 verified, 0 errors
+# verification results:: N verified, 0 errors
 ```
 
 ## Step 6 (optional): An editor integration
@@ -155,7 +155,7 @@ A successful run prints one line:
 verification results:: N verified, M errors
 ```
 
-`N` counts the proof obligations Tactus checked (one per `proof fn`, plus per-obligation theorems for any `exec fn` with `#[verifier::tactus_auto]`).
+`N` counts the proof obligations Tactus checked (one per `proof fn`, plus per-obligation theorems for any `exec fn` with `#[verifier::tactus_auto]`). **The exact value of `N` depends on your Tactus version** — internal obligation bookkeeping shifts between releases — and isn't meaningful on its own. The check that matters is **`0 errors`**. For that reason the chapter examples below write the expected output as `N verified, 0 errors` rather than pinning a specific number.
 
 When verification fails, Tactus prints the failing goal in Lean's standard notation, often with a hint about which tactic failed. It also drops the generated `.lean` file at:
 
