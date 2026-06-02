@@ -34,10 +34,10 @@ by {
         subst h; unfold pow; simp
     ) else (
         have ih := pow_pos base (e - 1)
-        have rec_app : pow base e = base * pow base ((↑e : Int) - 1).toNat := by
+        have rec_app : pow base e = base * pow base ((↑e - 1 : Int).toNat) := by
             conv_lhs => unfold pow
             rw [if_neg (by omega : e ≠ 0)]
-        have ee : ((↑e : Int) - 1).toNat = e - 1 := by omega
+        have ee : ((↑e - 1 : Int).toNat) = e - 1 := by omega
         rw [ee] at rec_app
         have h_prod : 1 * 1 <= base * pow base (e - 1) := by
             apply Nat.mul_le_mul <;> omega
@@ -82,18 +82,14 @@ by {
 // `pow(base, exp) <= 2^31`: in the loop body b <= pow(b, e) <= pow(base, exp),
 // so b*b and result*b both fit in u64.
 //
-// The verification is currently PAUSED. The proof is mathematically complete
-// (the two lemmas above, including the crux `pow_square`, are exactly what it
-// needs), but it hits three Tactus *lowering* frictions — not math problems —
-// documented in BUG-ch5-pow-iter-lowering-frictions.md at the workspace root:
-//
-//   1. The loop invariant arrives as one unsplit `∧` hypothesis in assert and
-//      obligation contexts, so omega/nlinarith can't reach its parts.
-//   2. The invariant clause renders in ℤ but a structurally identical assert
-//      renders in ℕ, so the asserted fact doesn't unify with the maintain goal.
-//   3. `e.toNat` vs `e` cast noise in unfolded recursive-call indices.
-//
-// Once those are addressed the exec proof lands cleanly; the full attempt is
+// Verification status (see BUG-ch5-pow-iter-lowering-frictions.md, workspace
+// root): friction 1 (unsplit invariant conjunction) is FIXED — the invariant
+// now arrives as individual hypotheses, and a `(intros; nlinarith)` closer
+// clears the `1 <= b` / `1 <= result` maintains. The exec proof is PAUSED on
+// friction 2 (ℤ-vs-ℕ lowering): `(result as nat) * pow(...)` lowers the whole
+// invariant to ℤ, while the spec-fn lemmas above produce ℕ facts, so combining
+// them needs pervasive cast-juggling. Once `(x as nat)` lowers to ℕ
+// consistently, the proof lands clean. The full attempt (with the closer) is
 // preserved in the bug report as the reproducer.
 // ---------------------------------------------------------------------------
 
