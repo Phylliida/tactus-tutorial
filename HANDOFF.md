@@ -4,18 +4,23 @@ This document records what got built and what got discovered while writing the T
 
 ## What was built
 
-### Five tutorial chapters (all verifying clean)
+### Six tutorial chapters (all verifying clean — 0 errors)
 
-| Chapter | Topic | Result |
-|---|---|---|
-| 0 | Setup and toolchain | Reference doc — no `.rs` |
-| 1 | `sum_to_n` — closed-form identity proof + `sum_iter` exec fn | 9 verified |
-| 2 | Fibonacci identities — `fib_pos`, `sum_fib_identity`, plus bonus `fib_iter` exec | 9 verified |
-| 2.5 | (optional) Same Fibonacci theorems encoded over `int` instead of `nat` | 7 verified |
-| 3 | Strong induction — `fib(n) ≤ 2ⁿ` and the addition formula | 7 verified |
-| 4 | `factorial` — iterative Rust verified against recursive math spec | 9 verified |
+| Chapter | Topic | Has README | Has `.rs` |
+|---|---|---|---|
+| 0 | Setup and toolchain | ✅ | reference doc |
+| 1 | `sum_to_n` — closed-form identity proof + `sum_iter` exec fn | ✅ | ✅ |
+| 2 | Fibonacci identities — `fib_pos`, `sum_fib_identity`, plus bonus `fib_iter` exec | ✅ | ✅ (×2) |
+| 2.5 | (optional) Same Fibonacci theorems encoded over `int` instead of `nat` | ✅ | ✅ |
+| 3 | Strong induction — `fib(n) ≤ 2ⁿ` and the addition formula | ✅ | ✅ |
+| 4 | `factorial` — iterative Rust verified against recursive `fact` spec | ✅ | ✅ |
+| 5 | `pow_by_squaring` — fast (O(log e)) exponentiation vs recursive `pow` ⭐ | ✅ | ✅ |
 
-Total: 41 verification obligations across 5 chapters, 0 errors.
+All chapter `.rs` files verify with **0 errors**. (Do not track exact "N verified"
+counts — they shift between Tactus versions; see "On obligation counts" below.)
+
+The arc: induction-in-a-line (1) → strong induction (3) → iterative-vs-recursive
+exec verification (1/2/4) → a *faster-than-its-spec* algorithm proven correct (5).
 
 ### One helper-lemma file
 
@@ -25,90 +30,85 @@ Total: 41 verification obligations across 5 chapters, 0 errors.
 
 Includes a "note on simp" section explaining the convention (no intermediate `simp`; `simp only [pinned_list]` is fine; bare `simp` only as a closer).
 
+## On obligation counts (important)
+
+The `verification results:: N verified, 0 errors` count is **volatile across Tactus
+versions** — it drifted twice in development (e.g. `sum_to_n` 9→6 after the
+friction-1/2 lowering fixes changed internal obligation bookkeeping). The READMEs
+therefore write expected output as `N verified, 0 errors` and a one-time note (ch0,
+"Reading verification output") explains that only `0 errors` is meaningful. **When
+checking chapters, assert on `0 errors`, never on a specific number.**
+
 ## Bugs filed during this work
 
-In rough order. Each was filed as `BUG-*.md` at the `verus-cad/` repo root; some have been removed after fix but are listed here for the record.
+Each was filed as `BUG-*.md` at the `verus-cad/` repo root; some were removed after fix.
 
-| # | Bug | Status |
-|---|---|---|
-| 1 | `as nat` cast dropped for U → Nat | **FIXED** (Tactus-side, the Clip emission was elided) |
-| 2 | Mathlib imports not threaded to exec fn theorems | **FIXED** (`nlinarith` etc. now available in exec contexts) |
-| 3 | FileLoader scanner gets confused by `by` followed by `{` across `//` comment lines | **FIXED** |
-| 4 | Multi-var loop variable names alpha-renamed | **FIXED** (single-var was fixed first, then multi-var followup) |
-| 5 | Helper proof fn invocation from exec body | **FIXED** for Lean-syntax `have _ := fn args`; Verus-syntax `fn(args);` still doesn't work (see "remaining" below) |
-| 6 | Synthetic temp `let tmp__1 := x` blocks asserted bounds | **FIXED** (`simp_all <;> omega` rung added to default closer) |
+| Bug | Status |
+|---|---|
+| `as nat` cast dropped for U → Nat | **FIXED** (the Clip emission was elided) |
+| Mathlib imports not threaded to exec fn theorems | **FIXED** (`nlinarith` etc. now available in exec contexts) |
+| FileLoader scanner confused by `by`+`{` across `//` comment lines | **FIXED** |
+| Multi-var loop variable names alpha-renamed | **FIXED** |
+| Helper proof fn invocation from exec body | **FIXED** for Lean-syntax `have _ := fn args` |
+| Synthetic temp `let tmp__1 := x` blocks asserted bounds | **FIXED** (`simp_all <;> omega` rung) |
+| Ch5 friction 1 — loop invariant arrives as one unsplit `∧` hypothesis | **FIXED** (now individual hyps) |
+| Ch5 friction 2 — ℤ-vs-ℕ inconsistent lowering of `(x as nat)` | **FIXED** (lowers consistently) |
 
-This was a remarkably fast feedback loop — every report I filed got a fix within hours. The tutorial would not have existed without this; six of the chapters' eight core techniques were unblocked by these fixes.
+This was a remarkably fast feedback loop — every report got a fix within hours. The
+tutorial (especially the chapter-5 capstone) would not exist without it.
 
-## Bugs still open after end-of-session audit
+## Bugs still open
 
-I tested each remaining issue from my earlier UX review and found these are the four that genuinely persist:
+1. **Dep-walker over-inclusion + order** in proof-fn → proof-fn calls. `BUG-proof-fn-dep-walker-over-includes.md`. Workaround: keep every proof fn self-contained (self-recursion is fine; don't call sibling proof fns — call them from the exec fn instead, which works).
+2. **Ch5 friction 3** — `e.toNat`-vs-`e` cast noise in unfolded recursive indices, and the **variable-range bounds** (`0 ≤ x ∧ x < 2⁶⁴`) arriving as conjunctions (unlike the now-split invariant). Both worked around author-side in chapter 5; documented in `BUG-ch5-pow-iter-lowering-frictions.md` (marked RESOLVED for frictions 1/2, with these two as future-polish candidates that would let the ch5 proof shrink).
+3. **`omega` doesn't traverse into function arguments.** Mathlib-side, not Tactus.
+4. **`proof { fn_name(args); }` Verus-syntax** gives "unknown tactic"; workaround `proof { have _ := fn_name args }`.
+5. **`invariant P by { tac }`** per-obligation surface syntax not supported (`Wp::AssertByTactus` exists internally per DESIGN.md).
 
-1. **Dep-walker over-inclusion + order** in proof-fn → proof-fn calls. Bug report at `BUG-proof-fn-dep-walker-over-includes.md` — newest as of session end.
-2. **`omega` doesn't traverse into function arguments.** Mathlib-side improvement, not Tactus.
-3. **`proof { fn_name(args); }` Verus-syntax** still gives "unknown tactic". Inconsistency with Verus convention; workaround is `proof { have _ := fn_name args }`.
-4. **`invariant P by { tac }`** per-obligation surface syntax not supported. `Wp::AssertByTactus` exists internally per DESIGN.md.
+## Techniques future tutorial writers should know
 
-Issues that **were fixed** during the session and should NOT be re-reported:
+### `simp only` over `simp` (the robustness rule)
 
-- Error location pointing at fn signature instead of failing tactic line ← FIXED
-- Multi-var loop variable alpha-renaming ← FIXED
-- Zero-arg proof fns getting a phantom Int parameter ← FIXED
-- The `// in tactic block` FileLoader scanner cross-contamination ← FIXED
-- `// vs --` diagnostic exists (though it suggests `Nat.div` even when the user clearly meant a comment — minor improvement opportunity, see UX review)
-
-## Techniques discovered that future tutorial writers should know
+Bare `simp`/`simp_all` shouldn't appear as an *intermediate* step — Mathlib's `@[simp]` set evolves. Use `simp only [pinned_list]` (stable), or `rw [if_neg …]` / `rw [if_pos …]` to step through definitions, and reserve bare `simp` for the *closing* tactic only. All chapters follow this strictly. (The chapter READMEs were resynced this session — they had been showing pre-refactor intermediate-`simp` proofs that no longer matched the `.rs`.)
 
 ### The `rw [show ... toNat ... from by omega]` idiom
 
-For conditional `.toNat` rewrites (e.g., `((↑n : Int) - 1).toNat = n - 1` requiring `n ≥ 1`), inline `rw [show … from by omega]` is the standard form. The TactusTutorialHelpers file handles the *unconditional* cases (`((↑(k + 1) : Int) - 1).toNat = k` and friends) via `@[simp]`. The conditional ones can't be simp-tagged (Lean's simp doesn't auto-supply hypotheses) and stay inline.
+For `.toNat` cleanups from `(n - 1) as nat` casts: inline `rw [show <messy> = <clean> from by omega]` for conditional shapes; the `TactusTutorialHelpers` `@[simp]` lemmas for the unconditional ones (fired via `simp only [...]`).
 
 ### Self-recursive proof fns for strong induction
 
-`proof fn foo(n: nat) ... decreases n by { ... if h : n = 0 then (...) else ( ... have ih := foo (n - 1) ... ) }`. The recursive call gives you the IH at the smaller value. Cross-fn calls aren't yet smooth (see open bug), so each strong-induction proof should be self-contained — inline any helpers rather than splitting into separate proof fns.
+`proof fn foo(n: nat) ... decreases n by { if h : n = 0 then (...) else ( have ih := foo (n - 1) ... ) }`. Keep them self-contained (don't call sibling proof fns — dep-walker bug). The exec fn *can* call them (`have h := foo args`).
 
-### The closed-form invariant trick
+### Exec-fn verification: invariant + assert chain + closer
 
-When verifying iterative-vs-recursive specs, prefer a closed-form invariant where possible. `sum_iter` works cleanly because the invariant is `2 * result == i * (i + 1)` — pure arithmetic, omega handles it. `fact_iter` needs a recurrence-based invariant `result == fact(i)`, which requires unfolding fact at each iteration plus monotonicity for the overflow bound. The latter is doable (see chapter 4) but ~3x the proof length.
+The chapter-4/5 template for "iterative loop vs recursive spec":
+- A **recurrence-based invariant** (`result == fact(i)`, or `result * pow(b,e) == pow(base,exp)`).
+- Per-step **`assert(...) by { ... }`** blocks that feed the maintain step (unfold the spec one level, rewrite via the crux lemma) and the overflow bound.
+- A **whole-fn closer** for the obligations the default ladder can't reach.
 
-### Loop-body assert chains for exec fn verification
+Closer forms seen:
+- `sum_iter` (ch1): `first | tactus_auto | (intros; nlinarith)` suffices — its invariant is a *closed form* (`2*result == i*(i+1)`), pure polynomial arithmetic. (The three inline asserts it once had were vestigial workarounds and were removed.)
+- `pow_iter` (ch5): `first | tactus_auto | (intros; omega) | (intros; nlinarith)`. **`omega` bridges ℕ/ℤ** (loop vars are `u64`/ℤ, spec fns are `nat`/ℕ) and abstracts nonlinear products as opaque atoms, so it closes the linear/overflow obligations; `nlinarith` handles the genuinely nonlinear ones.
 
-Inside `tactus_auto` loops, the pattern is:
+### The crux lemma pattern (ch5 `pow_square`)
 
-```rust
-while i < n
-    invariant ..., result == fact(i as nat), result <= BOUND
-    decreases n - i
-{
-    assert(recurrence) by { ... };       // fact(i+1) = (i+1) * fact(i)
-    assert(bound) by { ... };             // (i+1) * result <= BOUND
-    assert(new_invariant) by { ... };     // result * (i+1) = fact((i+1))
-    result = result * (i + 1);            // overflow check uses asserted bound
-    i = i + 1;
-}
-```
+A fast algorithm usually has one key identity the loop turns on. For squaring it's `pow(b*b, k) == pow(b, 2k)` — proved by induction on `k`, unfolding the LHS once and the RHS twice and bridging with the IH (`ring` finishes). Isolate that lemma; the loop body then just rewrites `pow(b, e)` ↔ `pow(b*b, e/2)` each step.
 
-The recurrence is needed to relate the new state to the spec. The bound is needed for the overflow check. The new-invariant assert bridges the maintain step (since `omega` doesn't combine multiplication with spec-fn equality).
+### Overflow lower bounds need explicit nonneg asserts (ch5)
 
-After the synthetic-temp closer fix, the overflow check uses the asserted bound directly — that was the killer block before.
-
-### `simp only` over `simp`
-
-Bare `simp` shouldn't appear in the middle of a proof because Mathlib's `@[simp]` set evolves. `simp only [list_of_pinned_lemmas]` is stable. Bare `simp` only as a closing tactic is fine. Chapters 1–4 follow this rule strictly.
+The variable-range facts (`0 ≤ x ∧ x < 2⁶⁴`) come as conjunctions that `nlinarith` won't split, so the overflow check's *lower* bound `0 ≤ b*b` fails. Fix: `assert(0 <= b * b) by { intros; have hb : 0 <= b := by omega; nlinarith [hb] }` — `omega` extracts the nonneg from the conjunction, `nlinarith` does the product.
 
 ## What this session validated about Tactus
 
-The headline use case from DESIGN.md — "verify Rust code against recursive math specs" — works end-to-end after the fixes that landed. Chapter 4's `factorial` is the proof: a real `u64` Rust function with a multiplicative loop, verified against the recursive `fact` spec, with overflow safety. The proof is ~150 lines including three helper proof fns (recurrence, monotonicity, concrete bound) and three inline asserts per loop iteration. Readable; teaches a technique; verifies in ~30 seconds.
-
-For anyone writing additional chapters (factorial → pow_by_squaring → gcd → insertion sort → …), chapter 4's structure is the template.
+The headline DESIGN.md use case — "verify Rust against recursive math specs" — works end-to-end, **including faster-than-spec algorithms**. Chapter 5 is the proof: a real `u64` exponentiation-by-squaring loop (O(log e)) verified against the O(e) recursive `pow`, with overflow safety — exactly the "prove once, optimize freely" promise. Chapters 1/2/4 cover the linear/closed-form cases; chapter 5 is the capstone.
 
 ## Setup the next session should do first
 
-1. Confirm Tactus builds (`cd tactus/source && vargo build --release`) — expect "1530 verified, 0 errors" on vstd.
-2. Confirm the TactusTutorialHelpers symlink exists and `lake build TactusTutorialHelpers` succeeds (one-time per Tactus rebuild that wipes `lean-project/.lake/`).
-3. Run the regression check: every chapter file from this session should still verify. See "All chapter files verify" below.
+1. Confirm Tactus builds (`cd tactus/source && vargo build --release`) — expect `0 errors` on vstd (count ~1530, may vary).
+2. Confirm the `TactusTutorialHelpers` symlink exists and `lake build TactusTutorialHelpers` succeeds (one-time per Tactus rebuild that wipes `lean-project/.lake/`).
+3. Run the regression below — every chapter file should end with `0 errors`.
 
-## All chapter files verify
+## Regression check
 
 ```bash
 for f in chapters/*/*.rs; do
@@ -118,6 +118,13 @@ for f in chapters/*/*.rs; do
 done
 ```
 
-Expected output: every line ends with `verification results:: N verified, 0 errors`.
+Expected: every line ends with `0 errors` (the `N verified` number is not meaningful — see "On obligation counts").
 
-Last verified: end of this session, post-simp-refactor commit (`612e600`).
+Last full regression: all 7 `.rs` files (chapters 1, 2×2, 2.5, 3, 4, 5), **0 errors**, at commit `bbc4a9b`.
+
+## Possible next chapters
+
+All reuse the chapter-4/5 template (recurrence invariant + helper lemmas + assert chain):
+- **Euclidean gcd** — iterative gcd verified to equal the spec gcd (introduces divisibility/mod reasoning).
+- **Fast-doubling Fibonacci** — the O(log n) algorithm that chapter 3's addition formula was built to unlock (hardest; even/odd + F(2n)/F(2n+1)).
+- **Combinatorial identities** — Pascal's rule, binomial theorem, hockey stick (the Sage-flavored direction; needs a binomial-coefficient spec).
