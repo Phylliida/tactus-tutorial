@@ -40,7 +40,13 @@ spec fn gcd(a: nat, b: nat) -> nat
 // (x = a, y = b) and is maintained by one unfold of the spec each step. At exit
 // y == 0, so gcd(x, 0) == x collapses the invariant to x == gcd(a, b) — the
 // postcondition.
+//
+// The closer's `(intros; omega)` branch handles the loop's `decreases y`
+// obligation, which Tactus renders with a `let _tactus_d_old := y; …` binding
+// for the old measure: `intros` introduces that let so `omega` can chain the
+// asserted `x % y < y` (the new y) against it.
 #[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; omega)")]
 fn gcd_iter(a: u64, b: u64) -> (g: u64)
     ensures g as nat == gcd(a as nat, b as nat)
 {
@@ -82,12 +88,20 @@ fn gcd_iter(a: u64, b: u64) -> (g: u64)
     }
     // (3) Exit. y == 0, so gcd(x, 0) == x (the spec's base case), and the
     // invariant gcd(x, 0) == gcd(a, b) gives x == gcd(a, b).
+    //
+    // The postcondition `x as nat == gcd(a, b)` renders in ℤ as
+    // `x = ↑(gcd a.toNat b.toNat)` (x stays Int; the nat-valued gcd is lifted).
+    // So we establish the ℕ equation `x.toNat = gcd a.toNat b.toNat` by walking
+    // the invariant through `y == 0` and the base case, then let `omega` bridge
+    // the lift (it knows `x ≥ 0 ==> ↑x.toNat = x`).
     assert(x as nat == gcd(a as nat, b as nat)) by {
         intros
         have hy0 : y.toNat = 0 := by omega
         have hbase : gcd x.toNat (0 : Nat) = x.toNat := by unfold gcd; simp
-        rw [← hbase, ← hy0]
-        assumption
+        have hinv : gcd x.toNat y.toNat = gcd a.toNat b.toNat := by assumption
+        rw [hy0] at hinv
+        rw [hbase] at hinv      // hinv : x.toNat = gcd a.toNat b.toNat
+        omega
     };
     x
 }
