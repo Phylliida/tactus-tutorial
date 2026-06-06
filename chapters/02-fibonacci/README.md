@@ -10,7 +10,7 @@ Fibonacci is the natural next step. The definition has **two base cases** and **
 The full code is in [`fibonacci.rs`](fibonacci.rs). To verify:
 
 ```bash
-../../../tactus/source/target-verus/release/verus fibonacci.rs
+../../../tactus/source/target-verus/release/verus --lean-backend fibonacci.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 

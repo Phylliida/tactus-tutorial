@@ -20,7 +20,7 @@ index instead of incrementing it.
 The full code is in [`fib_fast.rs`](fib_fast.rs). To verify:
 
 ```bash
-../../../tactus/source/target-verus/release/verus fib_fast.rs
+../../../tactus/source/target-verus/release/verus --lean-backend fib_fast.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 

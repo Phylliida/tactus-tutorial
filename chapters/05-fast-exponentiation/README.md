@@ -7,7 +7,7 @@ This is the capstone. Chapter 1 verified a loop against a *closed-form* identity
 The full code is in [`pow_by_squaring.rs`](pow_by_squaring.rs). To verify:
 
 ```bash
-../../../tactus/source/target-verus/release/verus pow_by_squaring.rs
+../../../tactus/source/target-verus/release/verus --lean-backend pow_by_squaring.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 

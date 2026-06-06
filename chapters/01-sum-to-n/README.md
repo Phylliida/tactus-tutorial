@@ -7,7 +7,7 @@ You almost certainly already believe this. The point of this chapter isn't the r
 The full code is in [`sum_to_n.rs`](sum_to_n.rs). To verify it:
 
 ```bash
-../../../tactus/source/target-verus/release/verus sum_to_n.rs
+../../../tactus/source/target-verus/release/verus --lean-backend sum_to_n.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 

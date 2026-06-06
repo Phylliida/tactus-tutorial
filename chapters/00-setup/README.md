@@ -100,7 +100,7 @@ Subsequent verifies pick it up automatically. Without this step, chapters that s
 From the tutorial repo root:
 
 ```bash
-../tactus/source/target-verus/release/verus chapters/01-sum-to-n/sum_to_n.rs
+../tactus/source/target-verus/release/verus --lean-backend chapters/01-sum-to-n/sum_to_n.rs
 ```
 
 Expected output (the `N` count varies by Tactus version — what matters is `0 errors`):
@@ -112,7 +112,7 @@ verification results:: N verified, 0 errors
 If you see `0 errors`, everything's working. Try Chapter 2 next:
 
 ```bash
-../tactus/source/target-verus/release/verus chapters/02-fibonacci/fibonacci.rs
+../tactus/source/target-verus/release/verus --lean-backend chapters/02-fibonacci/fibonacci.rs
 # verification results:: N verified, 0 errors
 ```
 
@@ -189,7 +189,7 @@ The verifier subprocess needs `lake`/`lean` on `$PATH` too. The most robust form
 
 ```bash
 PATH="$HOME/.elan/toolchains/leanprover--lean4---v4.25.0/bin:$PATH" \
-  ../tactus/source/target-verus/release/verus chapters/01-sum-to-n/sum_to_n.rs
+  ../tactus/source/target-verus/release/verus --lean-backend chapters/01-sum-to-n/sum_to_n.rs
 ```
 
 Wrap that into a shell alias or a tiny `verify.sh` script if you'll be running it a lot.

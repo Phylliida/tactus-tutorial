@@ -5,7 +5,7 @@
 The full code is in [`fibonacci_int.rs`](fibonacci_int.rs). To verify:
 
 ```bash
-../../../tactus/source/target-verus/release/verus fibonacci_int.rs
+../../../tactus/source/target-verus/release/verus --lean-backend fibonacci_int.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 
