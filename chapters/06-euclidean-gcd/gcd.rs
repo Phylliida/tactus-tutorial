@@ -58,10 +58,16 @@ fn gcd_iter(a: u64, b: u64) -> (g: u64)
         decreases y
     {
         // (1) Termination of the loop. The new y is `x % y`, so `decreases y`
-        // needs `x % y < y`. omega can't (variable divisor), so we hand it
-        // `Int.emod_lt_of_pos` (u64 is rendered as Int); the side goal `0 < y`
-        // comes from the loop condition. With this fact in scope the decrease
-        // check closes.
+        // needs both `0 <= x % y` (the measure is non-negative) and
+        // `x % y < y` (it strictly shrinks). omega can't do either for a
+        // variable divisor, so we hand it the two core lemmas (u64 renders as
+        // Int): `Int.emod_nonneg` and `Int.emod_lt_of_pos`. Their side goals
+        // (`y != 0`, `0 < y`) come from the loop condition. With both facts in
+        // scope the decrease check closes.
+        assert(0 <= x % y) by {
+            intros
+            apply Int.emod_nonneg <;> omega
+        };
         assert(x % y < y) by {
             intros
             apply Int.emod_lt_of_pos <;> omega
@@ -100,7 +106,7 @@ fn gcd_iter(a: u64, b: u64) -> (g: u64)
         have hbase : gcd x.toNat (0 : Nat) = x.toNat := by unfold gcd; simp
         have hinv : gcd x.toNat y.toNat = gcd a.toNat b.toNat := by assumption
         rw [hy0] at hinv
-        rw [hbase] at hinv      // hinv : x.toNat = gcd a.toNat b.toNat
+        rw [hbase] at hinv      -- hinv : x.toNat = gcd a.toNat b.toNat
         omega
     };
     x
