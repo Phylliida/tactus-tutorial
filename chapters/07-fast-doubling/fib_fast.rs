@@ -109,9 +109,10 @@ by {
                 subst hm1
                 have f0 : fib 0 = 0 := by unfold fib; simp
                 have f1 : fib 1 = 1 := by unfold fib; simp
+                show fib 0 ≤ fib 1   -- defeq `1 - 1 ≡ 0`, so omega's atoms match f0/f1
                 omega
             ) else (
-                // m >= 2: fib m = fib(m-1) + fib(m-2) >= fib(m-1) (fib(m-2) >= 0).
+                -- m >= 2: fib m = fib(m-1) + fib(m-2) >= fib(m-1) (fib(m-2) >= 0).
                 have hrec : fib m = fib (m - 1) + fib (m - 2) := by
                     conv_lhs => unfold fib
                     rw [if_neg (by omega : m ≠ 0)]
@@ -142,7 +143,12 @@ by {
 //   even (n=2k):    (c, d) = (F(2k), F(2k+1))
 //   odd  (n=2k+1):  (d, c+d) = (F(2k+1), F(2k) + F(2k+1)) = (F(2k+1), F(2k+2))
 // `nlinarith` combines the products; `omega` relates n, k=n/2, n%2 and the casts.
+// NB: inside `by { … }` blocks the proof text is raw Lean — use `.toNat`, never
+// the Verus `as nat` (which is a parse error in Lean). The closer's `nlinarith`
+// branch discharges the product-overflow checks (a*a, b*b, a*(2*b-a)) from the
+// `a <= b <= 2^31` bounds; `omega` handles the linear/cast obligations.
 #[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; omega) | (intros; nlinarith)")]
 fn fast_fib(n: u64) -> (res: (u64, u64))
     requires fib((n + 1) as nat) <= 0x8000_0000
     ensures
@@ -158,26 +164,71 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
     } else {
         let k = n / 2;
         // Recurse. The bound fib(k+1) <= fib(n+1) <= 2^31 comes from fib_mono
-        // (k + 1 <= n + 1, since k = n/2 and n >= 1). This one we can attempt:
-        // fib_mono gives the inequality, omega chains it with the precondition
-        // (both fib(_) values are opaque atoms to omega).
+        // (k + 1 <= n + 1, since k = n/2 and n >= 1).
         assert(fib((k + 1) as nat) <= 0x8000_0000) by {
             intros
-            have hm := fib_mono ((k + 1) as nat) ((n + 1) as nat) (by omega);
+            have hm := fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
             omega
         };
-        let (a, b) = fast_fib(k);   // a == F(k), b == F(k+1)
-        // c = F(2k), d = F(2k+1). `2*b - a` is nat-safe (2·F(k+1) >= F(k) by
-        // fib_mono); products fit u64 since a, b <= 2^31.
+        let (a, b) = fast_fib(k);   // a.toNat == fib k.toNat, b.toNat == fib (k+1).toNat
+        // Bounds for overflow + the 2*b-a nat-safety. b = F(k+1) <= F(n+1) <= 2^31
+        // (via fib_mono + the precondition h_req0), and a = F(k) <= F(k+1) = b.
+        // (`a`/`b` come from a tuple-let destructuring, so they're let-bound
+        // fvars (a := tmp.1 ← ret.1); omega/simp_all won't see through those.
+        // `simp only [<the lets>]` unfolds them to the `_tactus_ret_8` the
+        // recursive call's ensures are stated over, then omega closes.)
+        assert(b <= 0x8000_0000) by {
+            intros
+            have hm := fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
+            simp only [a, b, tmp__1, tmp___0] at *
+            omega
+        };
+        assert(a <= b) by {
+            intros
+            have hmono := fib_mono (k.toNat) ((k + 1).toNat) (by omega);
+            simp only [a, b, tmp__1, tmp___0] at *
+            omega
+        };
+        // Overflow bounds for the two products (concrete 2^63 literals, both
+        // < 2^64, so the auto overflow conjunctions close via omega treating the
+        // product as an atom). With a <= b <= 2^31: a*a+b*b <= 2^63 and
+        // a*(2*b-a) <= 2*a*b <= 2^63. nlinarith does the product; the lower
+        // bounds keep the `0 <= _` halves honest.
+        assert(a * a + b * b <= 0x8000_0000_0000_0000) by { intros; nlinarith };
+        assert(0 <= a * a + b * b) by { intros; nlinarith };
+        assert(a * (2 * b - a) <= 0x8000_0000_0000_0000) by { intros; nlinarith };
+        assert(0 <= a * (2 * b - a)) by { intros; nlinarith };
+        // c = F(2k), d = F(2k+1). `2*b - a` is nat-safe (a <= b <= 2*b).
         let c = a * (2 * b - a);
         let d = a * a + b * b;
-        // PROOF GAP (see PROOF PLAN above): the postconditions of both arms
-        // need the doubling-identity glue, which is the part to finish with a
-        // live verifier. Until then this branch does not verify.
         if n % 2 == 0 {
-            (c, d)        // n = 2k:   (F(n), F(n+1)) = (F(2k),   F(2k+1))
+            // n = 2k: (F(n), F(n+1)) = (F(2k), F(2k+1)).
+            // F(2k+1) = F(k)^2 + F(k+1)^2  (fib_addition at m=n=k).
+            assert(d as nat == fib((n + 1) as nat)) by {
+                intros
+                have hadd := fib_addition (k.toNat) (k.toNat);
+                have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
+                have hsub : k.toNat + k.toNat + 1 = (n + 1).toNat := by omega
+                simp only [d, tmp__3, c, tmp__2, a, b, tmp__1, tmp___0] at *
+                rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega
+                rw [← hsub, hadd, hk1]
+                nlinarith
+            };
+            (c, d)
         } else {
-            (d, c + d)    // n = 2k+1: (F(n), F(n+1)) = (F(2k+1), F(2k+2))
+            // n = 2k+1: (F(n), F(n+1)) = (F(2k+1), F(2k+2)).
+            // F(n) = F(2k+1) = F(k)^2 + F(k+1)^2 = d  (same identity as even-d).
+            assert(d as nat == fib(n as nat)) by {
+                intros
+                have hadd := fib_addition (k.toNat) (k.toNat);
+                have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
+                have hsub : k.toNat + k.toNat + 1 = n.toNat := by omega
+                simp only [d, tmp__3, c, tmp__2, a, b, tmp__1, tmp___0] at *
+                rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega
+                rw [← hsub, hadd, hk1]
+                nlinarith
+            };
+            (d, c + d)
         }
     }
 }
