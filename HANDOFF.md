@@ -2,25 +2,49 @@
 
 This document records what got built and what got discovered while writing the Tactus tutorial. The tutorial itself lives in `chapters/`; this is the meta-record for future sessions and for sharing back with Tactus upstream.
 
+## ⚠️ Run everything with `--lean-backend`
+
+As of 2026-06-06 the tutorial **must** be verified with the `--lean-backend`
+flag:
+
+```bash
+../tactus/source/target-verus/release/verus --lean-backend <file>.rs
+```
+
+It routes exec fns through the Lean backend and keeps `uN → nat` casts as
+`Clip{Nat}` for the Lean renderer. **Without it, `as nat` on spec-fn arguments
+looks "dropped" (`gcd a b` with `a : Int`) and everything errors** — that's not a
+bug, it's the wrong invocation (cost me a wrong-turn bug report this session; see
+the deleted false-alarm note in the bug log below). All chapter READMEs + the
+regression command now include the flag.
+
 ## What was built
 
-### Six tutorial chapters (all verifying clean — 0 errors)
+### Seven tutorial chapters (all verifying clean — 0 errors) + one scaffold
 
-| Chapter | Topic | Has README | Has `.rs` |
-|---|---|---|---|
-| 0 | Setup and toolchain | ✅ | reference doc |
-| 1 | `sum_to_n` — closed-form identity proof + `sum_iter` exec fn | ✅ | ✅ |
-| 2 | Fibonacci identities — `fib_pos`, `sum_fib_identity`, plus bonus `fib_iter` exec | ✅ | ✅ (×2) |
-| 2.5 | (optional) Same Fibonacci theorems encoded over `int` instead of `nat` | ✅ | ✅ |
-| 3 | Strong induction — `fib(n) ≤ 2ⁿ` and the addition formula | ✅ | ✅ |
-| 4 | `factorial` — iterative Rust verified against recursive `fact` spec | ✅ | ✅ |
-| 5 | `pow_by_squaring` — fast (O(log e)) exponentiation vs recursive `pow` ⭐ | ✅ | ✅ |
+| Chapter | Topic | README | `.rs` | Verifies |
+|---|---|---|---|---|
+| 0 | Setup and toolchain | ✅ | reference doc | — |
+| 1 | `sum_to_n` — closed-form identity proof + `sum_iter` exec fn | ✅ | ✅ | ✅ |
+| 2 | Fibonacci identities — `fib_pos`, `sum_fib_identity`, bonus `fib_iter` exec | ✅ | ✅ (×2) | ✅ |
+| 2.5 | (optional) Same Fibonacci theorems over `int` instead of `nat` | ✅ | ✅ | ✅ |
+| 3 | Strong induction — `fib(n) ≤ 2ⁿ` and the addition formula | ✅ | ✅ | ✅ |
+| 4 | `factorial` — iterative Rust verified against recursive `fact` spec | ✅ | ✅ | ✅ |
+| 5 | `pow_by_squaring` — fast (O(log e)) exponentiation vs recursive `pow` ⭐ | ✅ | ✅ | ✅ |
+| 6 | `gcd` — iterative Euclid vs recursive `gcd` (mod reasoning) ⭐ | ✅ | ✅ | ✅ |
+| 7 | `fast_fib` — O(log n) fast-doubling Fibonacci ⭐ | ✅ | ✅ | ⚠️ scaffold |
 
-All chapter `.rs` files verify with **0 errors**. (Do not track exact "N verified"
-counts — they shift between Tactus versions; see "On obligation counts" below.)
+Chapters 0–6 verify with **0 errors** under `--lean-backend`. (Do not track exact
+"N verified" counts — they shift between Tactus versions; see "On obligation
+counts" below.) **Chapter 7 is a scaffold**: spec + `fib_addition` (from ch3) +
+`fib_mono` are real, the recursive exec `fast_fib` carries the algorithm, but the
+doubling-identity glue in its `else` branch is an explicit PROOF PLAN / PROOF GAP
+(no `sorry`/`admit`) — to be finished against the live verifier.
 
 The arc: induction-in-a-line (1) → strong induction (3) → iterative-vs-recursive
-exec verification (1/2/4) → a *faster-than-its-spec* algorithm proven correct (5).
+exec verification (1/2/4) → a *faster-than-its-spec* algorithm proven correct (5)
+→ mod-reasoning where the spec **is** the loop step (6) → the O(log n) Fibonacci
+that ch3's addition formula unlocks (7, in progress).
 
 ### One helper-lemma file
 
@@ -53,9 +77,12 @@ Each was filed as `BUG-*.md` at the `verus-cad/` repo root; some were removed af
 | Synthetic temp `let tmp__1 := x` blocks asserted bounds | **FIXED** (`simp_all <;> omega` rung) |
 | Ch5 friction 1 — loop invariant arrives as one unsplit `∧` hypothesis | **FIXED** (now individual hyps) |
 | Ch5 friction 2 — ℤ-vs-ℕ inconsistent lowering of `(x as nat)` | **FIXED** (lowers consistently) |
+| Spec/proof fn `decreases` with a **mod** measure (`a % b < b`) fails termination (blocked ch6 gcd) | **FIXED** 2026-06-06 (tactus `9eebbbb`/`d33f3a9`; `decreasing_by` now `first \| omega \| (apply Nat.mod_lt <;> omega) \| decreasing_tactic`). `BUG-spec-fn-decreases-mod-termination.md` |
+| Under `--lean-backend`, the aggregate `main.lean` dropped the source `import Mathlib.Tactic.Linarith` → `nlinarith` "unknown tactic" (broke ch1/3/4/5 etc.) | **FIXED** 2026-06-06 (tactus `f949022`; `krate_preamble` unions imports over emitted fns). `BUG-lean-backend-main-lean-drops-mathlib-import.md` |
+| ~~`as nat` coercion dropped on spec-fn args under the rebuild~~ | **NOT A BUG** — was running *without* `--lean-backend`. False alarm; report deleted. The lesson: always pass `--lean-backend` (see top of this file). |
 
 This was a remarkably fast feedback loop — every report got a fix within hours. The
-tutorial (especially the chapter-5 capstone) would not exist without it.
+tutorial (especially the chapter-5/6 capstones) would not exist without it.
 
 ## Bugs still open
 
@@ -114,17 +141,41 @@ The headline DESIGN.md use case — "verify Rust against recursive math specs" �
 for f in chapters/*/*.rs; do
   echo "=== $f ==="
   PATH="$HOME/.elan/toolchains/leanprover--lean4---v4.25.0/bin:$PATH" \
-    ../tactus/source/target-verus/release/verus "$f" 2>&1 | tail -1
+    ../tactus/source/target-verus/release/verus --lean-backend "$f" 2>&1 | tail -1
 done
 ```
 
-Expected: every line ends with `0 errors` (the `N verified` number is not meaningful — see "On obligation counts").
+Note the **`--lean-backend`** flag — required (see top of this file).
+`chapters/07-fast-doubling/fib_fast.rs` is the in-progress scaffold and will NOT
+hit `0 errors` yet (it has a documented PROOF GAP); exclude it or expect errors
+there until its exec proof is finished.
 
-Last full regression: all 7 `.rs` files (chapters 1, 2×2, 2.5, 3, 4, 5), **0 errors**, at commit `bbc4a9b`.
+Expected: every other line ends with `0 errors` (the `N verified` number is not meaningful — see "On obligation counts").
 
-## Possible next chapters
+Last full regression: chapters 0–6 (8 `.rs` files: 1, 2×2, 2.5, 3, 4, 5, 6), all
+**0 errors** under `--lean-backend`, 2026-06-06. ch7 `fib_fast.rs` = scaffold
+(PROOF GAP, not yet verifying).
 
-All reuse the chapter-4/5 template (recurrence invariant + helper lemmas + assert chain):
-- **Euclidean gcd** — iterative gcd verified to equal the spec gcd (introduces divisibility/mod reasoning).
-- **Fast-doubling Fibonacci** — the O(log n) algorithm that chapter 3's addition formula was built to unlock (hardest; even/odd + F(2n)/F(2n+1)).
-- **Combinatorial identities** — Pascal's rule, binomial theorem, hockey stick (the Sage-flavored direction; needs a binomial-coefficient spec).
+## Next steps
+
+1. **Finish Chapter 7 (`fast_fib`).** The scaffold's remaining work is the
+   doubling-identity glue in the `else` branch (the PROOF GAP). Plan is in the
+   file + README: `fib_addition(k, k)` → `F(2k+1) = a²+b²`; `fib_addition(k, k+1)`
+   + recurrence → `F(2k+2)` / `F(2k)`; `fib_mono` for the `2b−a` guard; then the
+   nlinarith glue with ℤ/ℕ cast bridges (same pattern as ch4/ch6 — `have hX :
+   _ = (… : Int) := by omega` before `nlinarith`). Genuine unknowns to confirm
+   live: recursive-exec-fn support, product-overflow bounds.
+2. **Combinatorial identities** — Pascal's rule, binomial theorem, hockey stick
+   (the Sage-flavored direction; needs a binomial-coefficient spec; proof-fn-first,
+   closer to ch3). Verifiable-friendly (subtraction measures, no exec recursion).
+
+### Migration note (2026-06-06)
+
+When Tactus switched the supported invocation to `--lean-backend`, only **ch4
+`factorial`** needed `.rs` changes — its two exec asserts now need explicit
+ℤ/ℕ `omega` cast-bridges before `nlinarith` (the loop invariant lands as
+`result.toNat = fact i.toNat` (ℕ) while the assert goals are ℤ). Every other
+chapter passed on the Tactus import fix alone. **Pattern to remember:** under
+`--lean-backend`, when an `nlinarith`/`linarith` over a spec-fn value fails,
+add `have h : <var> = (<spec expr> : Int) := by omega` (and lift any ℕ bound
+chain to ℤ the same way) before the nonlinear tactic.
