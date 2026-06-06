@@ -13,9 +13,13 @@ the whole tutorial — because, as you'll see, the spec **is** the loop step.
 The full code is in [`gcd.rs`](gcd.rs). To verify:
 
 ```bash
-../../../tactus/source/target-verus/release/verus gcd.rs
+../../../tactus/source/target-verus/release/verus --lean-backend gcd.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
+
+> **`--lean-backend`** routes exec fns through the Lean backend (and keeps
+> `uN → nat` casts as `Clip{Nat}` for the Lean renderer). It's the mode this
+> tutorial targets — run every chapter with it.
 
 ## The specification
 
