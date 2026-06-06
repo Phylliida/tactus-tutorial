@@ -20,7 +20,7 @@ cd lean_verify && ./scripts/setup-mathlib.sh
 Then verify a chapter:
 
 ```bash
-../tactus/source/target-verus/release/verus chapters/01-sum-to-n/sum_to_n.rs
+../tactus/source/target-verus/release/verus --lean-backend chapters/01-sum-to-n/sum_to_n.rs
 ```
 
 Expected output: `verification results:: N verified, 0 errors`.

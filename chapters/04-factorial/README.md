@@ -7,7 +7,7 @@ This is the chapter the whole tutorial has been building toward. Chapter 1 verif
 The full code is in [`factorial.rs`](factorial.rs). To verify:
 
 ```bash
-../../../tactus/source/target-verus/release/verus factorial.rs
+../../../tactus/source/target-verus/release/verus --lean-backend factorial.rs
 # verification results:: N verified, 0 errors   (N varies by Tactus version; 0 errors is the point)
 ```
 
