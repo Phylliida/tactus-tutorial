@@ -109,5 +109,9 @@ Pulling it all together with real Rust algorithms verified against mathematical 
 - Chapter 3: ✅ drafted (strong induction via `fib(n) ≤ 2ⁿ`)
 - Chapter 4: ✅ drafted (iterative factorial against recursive `fact` spec — landed after the synthetic-temp closer fix)
 - Chapter 5: ✅ drafted (exponentiation by squaring against recursive `pow` — the O(log n) capstone)
+- Chapter 6: ✅ drafted (iterative Euclidean `gcd` against recursive `gcd` — the spec *is* the loop step; introduces modular reasoning)
+- Chapter 7: ⚠️ scaffold (fast-doubling Fibonacci, O(log n) — README + helpers + algorithm done; the doubling-identity exec proof is an in-progress PROOF GAP)
+
+> **Run with `--lean-backend`** (see [Chapter 0](chapters/00-setup/README.md) and the Setup snippet above). It's the supported invocation; chapters 0–6 verify with `0 errors` under it.
 
 The chapter order shifted from the original outline: exec-fn verification (originally slated for an early `factorial` chapter) was deferred while Tactus's `as nat`-into-recursive-spec-fn tooling matured, so the early chapters are proof-fn-first and build up the techniques (induction, strong induction, rewriting). That tooling has since landed, and exec verification now appears throughout — `sum_iter` (Chapter 1), `fib_iter` (Chapter 2), `factorial` (Chapter 4), and the fast-exponentiation capstone `pow_iter` (Chapter 5).
