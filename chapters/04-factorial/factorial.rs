@@ -126,18 +126,28 @@ fn factorial(n: u64) -> (r: u64)
             rw [e2] at rec_app
             linarith [rec_app]
         };
-        // (2) bound: result * (i + 1) <= 3628800
+        // (2) bound: result * (i + 1) <= 3628800.
+        //   The invariant gives `result.toNat = fact i.toNat` (ℕ) and the goal
+        //   is in ℤ, so we bridge the casts with omega before nlinarith: `hri`
+        //   lifts the invariant to `result = ↑(fact i.toNat)`, and `hb` lifts
+        //   the ℕ bound chain (mono_app, b10) up to ℤ. nlinarith then combines
+        //   them with the recurrence (assert (1), in context).
         assert(result * (i + 1) <= 3628800) by {
             intros
             have mono := fact_monotone ((i + 1 : Int).toNat) 10
             have mono_app := mono (by omega)
             have b10 : fact (10 : Nat) <= 3628800 := fact_10_bound 0
-            nlinarith
+            have hri : result = (fact i.toNat : Int) := by omega
+            have hb : (fact ((i + 1 : Int).toNat) : Int) <= 3628800 := by omega
+            nlinarith [hri, hb]
         };
-        // (3) result * (i + 1) = fact(i+1) -- needed for maintain
+        // (3) result * (i + 1) = fact(i+1) -- needed for maintain.
+        //   Same ℤ/ℕ bridge: with `result = ↑(fact i.toNat)` and the recurrence
+        //   (assert (1)), nlinarith closes result*(i+1) = ↑(fact (i+1).toNat).
         assert(result * (i + 1) == fact((i + 1) as nat)) by {
             intros
-            nlinarith
+            have hri : result = (fact i.toNat : Int) := by omega
+            nlinarith [hri]
         };
         result = result * (i + 1);
         i = i + 1;
