@@ -78,8 +78,6 @@ by {
         -- `@[simp]` set, so a future Mathlib update could change what
         -- shape it leaves the goal in. `if_neg` is a stable core lemma.
         rw [if_neg (by omega : (k + 1 : Nat) ≠ 0)]
-        -- Simplify `((k + 1) as nat - 1) as nat` (Tactus renders the
-        -- spec fn's `(n - 1) as nat` as `Int.toNat (↑n - 1)`).
         rw [show ((↑(k + 1) : Int) - 1).toNat = k from by omega]
         nlinarith [ih]
 }
