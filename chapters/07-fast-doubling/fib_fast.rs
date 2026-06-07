@@ -165,7 +165,10 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
         // Recurse. The bound fib(k+1) <= fib(n+1) <= 2^31 comes from fib_mono
         // (k + 1 <= n + 1, since k = n/2 and n >= 1).
         assert(fib((k + 1) as nat) <= 0x8000_0000) by {
-            intros
+            -- k := n/2 is a trailing goal-position let; name it explicitly (plain
+            -- `intros` leaves it inaccessible here). The four `_` are
+            -- decrease_init0 and the n=0 / 2≠0 / 2≠0 guards before it.
+            intro _ _ _ _ k
             have hm := fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
             omega
         };
