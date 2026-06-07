@@ -96,9 +96,11 @@ fn factorial(n: u64) -> (r: u64)
     let mut result: u64 = 1;
     let mut i: u64 = 0;
     assert(result as nat == fact(i as nat)) by {
-        intros
-        have h : i.toNat = 0 := by omega
-        rw [h]; unfold fact; decide
+        -- result := 1, i := 0 are synthetic goal-position lets (not intro'd), so
+        -- don't name them: `show` strips them by defeq, then fact 0 = 1.
+        show Int.toNat 1 = fact (Int.toNat 0)
+        unfold fact
+        simp
     };
     while i < n
         invariant
