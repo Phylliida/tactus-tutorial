@@ -102,13 +102,16 @@ fn fib_iter(n: u64) -> (r: u64)
     let mut a: u64 = 0;
     let mut b: u64 = 1;
     let mut i: u64 = 1;
+    // The init values a := 0, b := 1, i := 1 are goal-position lets; name them
+    // with an explicit `intro` (plain `intros` leaves them inaccessible) — the
+    // leading `_` is the ¬(n = 0) hyp from the early return.
     assert(a as nat == fib((i - 1) as nat)) by {
-        intros
+        intro _ a b i
         have h0 : (i - 1 : Int).toNat = 0 := by omega
         rw [h0]; unfold fib; decide
     };
     assert(b as nat == fib(i as nat)) by {
-        intros
+        intro _ a b i _ _
         have h1 : i.toNat = 1 := by omega
         rw [h1]; unfold fib; decide
     };
