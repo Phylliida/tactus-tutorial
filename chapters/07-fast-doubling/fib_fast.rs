@@ -1,25 +1,26 @@
 // Chapter 7: fast-doubling Fibonacci — an O(log n) algorithm verified against
 // the recursive `fib` spec. The Fibonacci thread's capstone.
 //
-// STATUS: scaffold. The helper lemmas (fib_addition, fib_mono) mirror the
-// VERIFIED Chapter 3 / Chapter 4 patterns and should be solid. The recursive
-// exec fn `fast_fib` carries the algorithm and a best-effort proof, but its
-// body has genuine unknowns that need a live Tactus run to settle:
-//   (1) recursive *exec* fn support (decreases n; recursive call on n / 2);
-//   (2) the even-index identity F(2k) = F(k)·(2·F(k+1) − F(k)), whose cleanest
-//       derivation goes through fib_addition at a k-1 index — and the
-//       dep-walker bug forbids a proof fn calling a sibling proof fn, so it's
-//       derived *inline in the exec body* (exec fns may call proof fns);
-//   (3) product-overflow bounds for a*a, b*b, a*(2*b - a), c + d.
-// The exec fn's `else` branch carries the algorithm and a documented PROOF PLAN
-// for the doubling-identity glue (its PROOF GAP); no `sorry`/`admit` is used —
-// per the project's First Principles, the gap is left explicit rather than
-// papered over, to be closed with a live verifier.
-//
-// The two doubling identities (both from Chapter 3's addition formula
+// `fast_fib(n)` returns the pair (F(n), F(n+1)) by recursing on k = n/2, using
+// the two doubling identities (both from Chapter 3's addition formula
 // F_{m+n+1} = F_m·F_n + F_{m+1}·F_{n+1}):
 //   odd:  F_{2k+1} = F_k² + F_{k+1}²              (addition formula at m = n = k)
 //   even: F_{2k}   = F_k · (2·F_{k+1} − F_k)      (needs F_k ≤ F_{k+1}, i.e. fib_mono)
+//
+// Helpers (verified): fib_addition (reproduced from Chapter 3) and fib_mono
+// (mirrors Chapter 4's fact_monotone). The recursive exec fn `fast_fib` then
+// verifies its postconditions via four asserts — one per (parity × component) —
+// each establishing the relevant doubling identity over ℤ (so the `2b − a`
+// subtraction is exact, no nat truncation) and converting back via c, d ≥ 0.
+//
+// Two things worth knowing for anyone editing the proof:
+//   - Inside `by { … }` blocks the text is raw Lean: use `.toNat`, never the
+//     Verus `as nat` (a parse error in Lean).
+//   - The F(2k+1) asserts close `d = ↑F(2k+1)` with `omega` (it atomizes the
+//     fib products and reads the cast identity linearly); the F(2k)/F(2k+2)
+//     asserts genuinely expand `a·(2b−a)`, so they need `nlinarith`. Using
+//     `nlinarith` for the former whnf-loops on `fib`. The whole-fn proof is
+//     large, hence the raised `heartbeats`.
 
 use verus_builtin::*;
 use verus_builtin_macros::*;
@@ -132,23 +133,21 @@ by {
 // under 2^64. The bound propagates to the recursive call because k+1 <= n+1
 // and fib is monotone (fib_mono).
 //
-// PROOF PLAN for the `else` branch (to be completed under a live Tactus — see
-// the file header for why it's a plan, not blind proof text). With a == F(k),
-// b == F(k+1), the facts come from three lemma instances + one unfold:
+// The `else` branch (a == F(k), b == F(k+1)) builds the doubling identities from:
 //   - fib_addition(k, k):     F(2k+1) = a² + b²                 (subscript k+k+1)
 //   - fib_addition(k, k+1):   F(2k+2) = a·b + b·F(k+2)          (subscript k+(k+1)+1)
 //                             and F(k+2) = F(k+1) + F(k) gives  F(2k+2) = 2ab + b²
-//   - recurrence at 2k+2:     F(2k+2) = F(2k+1) + F(2k)    ⟹    F(2k) = 2ab − a²
-//                             = a·(2b − a)  (nat-safe since fib_mono ⟹ a ≤ b)
+//                             so c+d = a·(2b−a) + (a²+b²) = 2ab + b² = F(2k+2)
+//   - F(2k) = c = a·(2b−a) follows over ℤ (the subtraction is exact there;
+//     nat-safe since fib_mono ⟹ a ≤ b), giving c = F(2k+2) − F(2k+1).
 //   even (n=2k):    (c, d) = (F(2k), F(2k+1))
-//   odd  (n=2k+1):  (d, c+d) = (F(2k+1), F(2k) + F(2k+1)) = (F(2k+1), F(2k+2))
-// `nlinarith` combines the products; `omega` relates n, k=n/2, n%2 and the casts.
-// NB: inside `by { … }` blocks the proof text is raw Lean — use `.toNat`, never
-// the Verus `as nat` (which is a parse error in Lean). The closer's `nlinarith`
-// branch discharges the product-overflow checks (a*a, b*b, a*(2*b-a)) from the
-// `a <= b <= 2^31` bounds; `omega` handles the linear/cast obligations.
+//   odd  (n=2k+1):  (d, c+d) = (F(2k+1), F(2k+2))
+// The whole-fn closer discharges the product-overflow checks (a*a, b*b,
+// a*(2*b-a)) from the `a <= b <= 2^31` bounds; `omega` handles the linear/cast
+// obligations and the loop decrease.
 #[verifier::tactus_auto]
 #[verifier::tactus_tactic("first | tactus_auto | (intros; omega) | (intros; nlinarith)")]
+#[verifier::heartbeats(4000000)]
 fn fast_fib(n: u64) -> (res: (u64, u64))
     requires fib((n + 1) as nat) <= 0x8000_0000
     ensures
@@ -194,6 +193,10 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
         // product as an atom). With a <= b <= 2^31: a*a+b*b <= 2^63 and
         // a*(2*b-a) <= 2*a*b <= 2^63. nlinarith does the product; the lower
         // bounds keep the `0 <= _` halves honest.
+        assert(a * a <= 0x4000_0000_0000_0000) by { intros; nlinarith };
+        assert(0 <= a * a) by { intros; nlinarith };
+        assert(b * b <= 0x4000_0000_0000_0000) by { intros; nlinarith };
+        assert(0 <= b * b) by { intros; nlinarith };
         assert(a * a + b * b <= 0x8000_0000_0000_0000) by { intros; nlinarith };
         assert(0 <= a * a + b * b) by { intros; nlinarith };
         assert(a * (2 * b - a) <= 0x8000_0000_0000_0000) by { intros; nlinarith };
@@ -206,13 +209,52 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // F(2k+1) = F(k)^2 + F(k+1)^2  (fib_addition at m=n=k).
             assert(d as nat == fib((n + 1) as nat)) by {
                 intros
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have hd_def : (d : Int) = a * a + b * b := by simp only [d, tmp__3]
+                have hd0 : (0 : Int) <= a * a + b * b := by omega
                 have hadd := fib_addition (k.toNat) (k.toNat);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
-                have hsub : k.toNat + k.toNat + 1 = (n + 1).toNat := by omega
-                simp only [d, tmp__3, c, tmp__2, a, b, tmp__1, tmp___0] at *
-                rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega
-                rw [← hsub, hadd, hk1]
-                nlinarith
+                rw [hk1] at hadd
+                have haddZ : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast hadd
+                have hdZ : (d : Int) = ↑(fib (k.toNat + k.toNat + 1)) := by rw [hd_def, e1, e2]; omega
+                rw [show k.toNat + k.toNat + 1 = (n + 1).toNat from by omega] at hdZ
+                omega
+            };
+            // F(2k) = F(k)·(2·F(k+1) − F(k)) = c. We avoid bridging c's nat
+            // subtraction directly: prove the ℤ identity c = ↑F(2k) using
+            // F(2k) = F(2k+2) − F(2k+1) (recurrence) with F(2k+1), F(2k+2) from
+            // fib_addition, then convert via c ≥ 0.
+            assert(c as nat == fib(n as nat)) by {
+                intros
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have hc_def : (c : Int) = a * (2 * b - a) := by simp only [c, tmp__2]
+                have hc0 : (0 : Int) <= a * (2 * b - a) := by nlinarith
+                have h1 := fib_addition (k.toNat) (k.toNat);
+                have h2 := fib_addition (k.toNat) (k.toNat + 1);
+                have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
+                have hr : fib (k.toNat + 1 + 1) = fib (k.toNat + 1) + fib (k.toNat) := by
+                    conv_lhs => unfold fib
+                    rw [if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 0), if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 1)]
+                    rw [show ((↑(k.toNat + 1 + 1) : Int) - 1).toNat = k.toNat + 1 from by omega]
+                    rw [show ((↑(k.toNat + 1 + 1) : Int) - 2).toNat = k.toNat from by omega]
+                have hrec : fib (k.toNat + k.toNat + 1 + 1) = fib (k.toNat + k.toNat + 1) + fib (k.toNat + k.toNat) := by
+                    conv_lhs => unfold fib
+                    rw [if_neg (by omega : (k.toNat + k.toNat + 1 + 1 : Nat) ≠ 0), if_neg (by omega : (k.toNat + k.toNat + 1 + 1 : Nat) ≠ 1)]
+                    rw [show ((↑(k.toNat + k.toNat + 1 + 1) : Int) - 1).toNat = k.toNat + k.toNat + 1 from by omega]
+                    rw [show ((↑(k.toNat + k.toNat + 1 + 1) : Int) - 2).toNat = k.toNat + k.toNat from by omega]
+                rw [show k.toNat + (k.toNat + 1) + 1 = k.toNat + k.toNat + 1 + 1 from by omega] at h2
+                rw [hr] at h2
+                rw [hk1] at h1 h2
+                have h1Z : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast h1
+                have h2Z : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib k.toNat) * ↑(fib ((k + 1).toNat)) + ↑(fib ((k + 1).toNat)) * (↑(fib ((k + 1).toNat)) + ↑(fib k.toNat)) := by exact_mod_cast h2
+                have hrecZ : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib (k.toNat + k.toNat + 1)) + ↑(fib (k.toNat + k.toNat)) := by exact_mod_cast hrec
+                have hcZ : (c : Int) = ↑(fib (k.toNat + k.toNat)) := by
+                    rw [hc_def, e1, e2]; nlinarith [h1Z, h2Z, hrecZ]
+                have hn : k.toNat + k.toNat = n.toNat := by omega
+                rw [hn] at hcZ
+                omega
             };
             (c, d)
         } else {
@@ -220,13 +262,39 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // F(n) = F(2k+1) = F(k)^2 + F(k+1)^2 = d  (same identity as even-d).
             assert(d as nat == fib(n as nat)) by {
                 intros
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have hd_def : (d : Int) = a * a + b * b := by simp only [d, tmp__3]
+                have hd0 : (0 : Int) <= a * a + b * b := by omega
                 have hadd := fib_addition (k.toNat) (k.toNat);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
-                have hsub : k.toNat + k.toNat + 1 = n.toNat := by omega
-                simp only [d, tmp__3, c, tmp__2, a, b, tmp__1, tmp___0] at *
-                rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega
-                rw [← hsub, hadd, hk1]
-                nlinarith
+                rw [hk1] at hadd
+                have haddZ : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast hadd
+                have hdZ : (d : Int) = ↑(fib (k.toNat + k.toNat + 1)) := by rw [hd_def, e1, e2]; omega
+                rw [show k.toNat + k.toNat + 1 = n.toNat from by omega] at hdZ
+                omega
+            };
+            // F(n+1) = F(2k+2) = c + d.  c+d = a*(2b-a)+(a²+b²) = 2ab+b² over ℤ;
+            // = F(k)·F(k+1) + F(k+1)·F(k+2) with F(k+2)=F(k+1)+F(k) (fib_addition + recurrence).
+            assert((c + d) as nat == fib((n + 1) as nat)) by {
+                intros
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have hcd_def : (c + d : Int) = a * (2 * b - a) + (a * a + b * b) := by simp only [c, d, tmp__2, tmp__3]
+                have h2 := fib_addition (k.toNat) (k.toNat + 1);
+                have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
+                have hr : fib (k.toNat + 1 + 1) = fib (k.toNat + 1) + fib (k.toNat) := by
+                    conv_lhs => unfold fib
+                    rw [if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 0), if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 1)]
+                    rw [show ((↑(k.toNat + 1 + 1) : Int) - 1).toNat = k.toNat + 1 from by omega]
+                    rw [show ((↑(k.toNat + 1 + 1) : Int) - 2).toNat = k.toNat from by omega]
+                rw [show k.toNat + (k.toNat + 1) + 1 = k.toNat + k.toNat + 1 + 1 from by omega] at h2
+                rw [hr] at h2
+                rw [hk1] at h2
+                have h2Z : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib k.toNat) * ↑(fib ((k + 1).toNat)) + ↑(fib ((k + 1).toNat)) * (↑(fib ((k + 1).toNat)) + ↑(fib k.toNat)) := by exact_mod_cast h2
+                have hcdZ : (c + d : Int) = ↑(fib (k.toNat + k.toNat + 1 + 1)) := by rw [hcd_def, e1, e2]; nlinarith [h2Z]
+                rw [show k.toNat + k.toNat + 1 + 1 = (n + 1).toNat from by omega] at hcdZ
+                omega
             };
             (d, c + d)
         }
