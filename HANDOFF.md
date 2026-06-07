@@ -20,7 +20,7 @@ regression command now include the flag.
 
 ## What was built
 
-### Seven tutorial chapters (all verifying clean — 0 errors) + one scaffold
+### Eight tutorial chapters — all verifying clean (0 errors)
 
 | Chapter | Topic | README | `.rs` | Verifies |
 |---|---|---|---|---|
@@ -32,14 +32,14 @@ regression command now include the flag.
 | 4 | `factorial` — iterative Rust verified against recursive `fact` spec | ✅ | ✅ | ✅ |
 | 5 | `pow_by_squaring` — fast (O(log e)) exponentiation vs recursive `pow` ⭐ | ✅ | ✅ | ✅ |
 | 6 | `gcd` — iterative Euclid vs recursive `gcd` (mod reasoning) ⭐ | ✅ | ✅ | ✅ |
-| 7 | `fast_fib` — O(log n) fast-doubling Fibonacci ⭐ | ✅ | ✅ | ⚠️ scaffold |
+| 7 | `fast_fib` — O(log n) fast-doubling Fibonacci ⭐ | ✅ | ✅ | ✅ |
 
-Chapters 0–6 verify with **0 errors** under `--lean-backend`. (Do not track exact
-"N verified" counts — they shift between Tactus versions; see "On obligation
-counts" below.) **Chapter 7 is a scaffold**: spec + `fib_addition` (from ch3) +
-`fib_mono` are real, the recursive exec `fast_fib` carries the algorithm, but the
-doubling-identity glue in its `else` branch is an explicit PROOF PLAN / PROOF GAP
-(no `sorry`/`admit`) — to be finished against the live verifier.
+All chapters 0–7 verify with **0 errors** under `--lean-backend`. (Do not track
+exact "N verified" counts — they shift between Tactus versions; see "On
+obligation counts" below.) Chapter 7 — the Fibonacci-thread capstone — is the
+recursive `fast_fib(n) = (F(n), F(n+1))` verified end-to-end: both doubling
+identities (from ch3's `fib_addition`), product-overflow safety, and `decreases`
+termination.
 
 The arc: induction-in-a-line (1) → strong induction (3) → iterative-vs-recursive
 exec verification (1/2/4) → a *faster-than-its-spec* algorithm proven correct (5)
@@ -146,36 +146,54 @@ done
 ```
 
 Note the **`--lean-backend`** flag — required (see top of this file).
-`chapters/07-fast-doubling/fib_fast.rs` is the in-progress scaffold and will NOT
-hit `0 errors` yet (it has a documented PROOF GAP); exclude it or expect errors
-there until its exec proof is finished.
 
-Expected: every other line ends with `0 errors` (the `N verified` number is not meaningful — see "On obligation counts").
+Expected: every line ends with `0 errors` (the `N verified` number is not meaningful — see "On obligation counts").
 
-Last full regression: chapters 0–6 (8 `.rs` files: 1, 2×2, 2.5, 3, 4, 5, 6), all
-**0 errors** under `--lean-backend`, 2026-06-06. ch7 `fib_fast.rs` = scaffold
-(PROOF GAP, not yet verifying).
+Last full regression: chapters 0–7 (9 `.rs` files: 1, 2×2, 2.5, 3, 4, 5, 6, 7),
+all **0 errors** under `--lean-backend`, 2026-06-07.
 
 ## Next steps
 
-1. **Finish Chapter 7 (`fast_fib`).** The scaffold's remaining work is the
-   doubling-identity glue in the `else` branch (the PROOF GAP). Plan is in the
-   file + README: `fib_addition(k, k)` → `F(2k+1) = a²+b²`; `fib_addition(k, k+1)`
-   + recurrence → `F(2k+2)` / `F(2k)`; `fib_mono` for the `2b−a` guard; then the
-   nlinarith glue with ℤ/ℕ cast bridges (same pattern as ch4/ch6 — `have hX :
-   _ = (… : Int) := by omega` before `nlinarith`). Genuine unknowns to confirm
-   live: recursive-exec-fn support, product-overflow bounds.
-2. **Combinatorial identities** — Pascal's rule, binomial theorem, hockey stick
+1. **Combinatorial identities** — Pascal's rule, binomial theorem, hockey stick
    (the Sage-flavored direction; needs a binomial-coefficient spec; proof-fn-first,
    closer to ch3). Verifiable-friendly (subtraction measures, no exec recursion).
+2. **Matrix-power Fibonacci** (the ch7 exercise) — unifies fast-doubling with
+   ch5's exponentiation-by-squaring via `[[1,1],[1,0]]^n`.
 
-### Migration note (2026-06-06)
+## Techniques discovered building chapters 6–7
 
-When Tactus switched the supported invocation to `--lean-backend`, only **ch4
-`factorial`** needed `.rs` changes — its two exec asserts now need explicit
-ℤ/ℕ `omega` cast-bridges before `nlinarith` (the loop invariant lands as
-`result.toNat = fact i.toNat` (ℕ) while the assert goals are ℤ). Every other
-chapter passed on the Tactus import fix alone. **Pattern to remember:** under
-`--lean-backend`, when an `nlinarith`/`linarith` over a spec-fn value fails,
+### `--lean-backend` cast bridges (ch4/6/7)
+
+When an `nlinarith`/`linarith` over a spec-fn value fails under `--lean-backend`,
 add `have h : <var> = (<spec expr> : Int) := by omega` (and lift any ℕ bound
-chain to ℤ the same way) before the nonlinear tactic.
+chain to ℤ the same way) before the nonlinear tactic. ch4's two exec asserts and
+ch7's identity asserts all use this.
+
+### Naming synthetic goal-position lets in pre-loop / before-call asserts (ch2/4/7)
+
+The loop-local-names lowering puts a fn's init/temp values (`let result := 1;
+let i := 0; …`, `let k := n/2; …`) in **goal position**, *not* auto-intro'd. A
+plain `intros` then introduces them with **inaccessible** names, so referencing
+`i` / `k` by name fails ("Unknown identifier"). Two fixes, depending on the
+assert:
+- **Name them explicitly:** `intro _ a b i` (the leading `_`s are any guard
+  hyps like `¬(n = 0)` / `2 ≠ 0` that precede the lets). Used in ch2 `fib_iter`
+  (`intro _ a b i`) and ch7's recursive-call bound (`intro _ _ _ _ k`).
+- **Or avoid naming:** `show <concrete goal>` strips the lets by defeq, then
+  evaluate. Used in ch4's entry assert (`show Int.toNat 1 = fact (Int.toNat 0)`).
+Note the `--` (not `//`) for comments *inside* `by { … }` Lean blocks.
+
+### `omega` vs `nlinarith` on `fib`-product goals (ch7)
+
+`F(2k+1) = a²+b²` closes with **`omega`** (it atomizes the `↑fib·↑fib` products
+and reads the lifted addition-formula identity linearly); `F(2k)`/`F(2k+2)`
+genuinely expand `a·(2b−a)`, so they need **`nlinarith`**. Using `nlinarith` for
+the former whnf-loops on the noncomputable `fib`. ch7 also raises `heartbeats`
+(the whole-fn proof is large — many asserts over a deep let context).
+
+### Tactus bugs surfaced + fixed this arc
+
+`BUG-spec-fn-decreases-mod-termination` (gcd's `a % b < b`), the `--lean-backend`
+`main.lean` Mathlib-import drop, and `BUG-tuple-destructure-alias-temps-block-omega`
+(fast_fib's tuple destructure) were all reported and fixed upstream — see the
+`verus-cad/` repo root.
