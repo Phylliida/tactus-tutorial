@@ -28,6 +28,7 @@ use verus_builtin_macros::*;
 verus! {
 
 import Mathlib.Tactic.Linarith
+import Mathlib.Tactic.LinearCombination
 
 spec fn fib(n: nat) -> nat
     decreases n
@@ -253,8 +254,14 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
                 have h1Z : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast h1
                 have h2Z : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib k.toNat) * ↑(fib ((k + 1).toNat)) + ↑(fib ((k + 1).toNat)) * (↑(fib ((k + 1).toNat)) + ↑(fib k.toNat)) := by exact_mod_cast h2
                 have hrecZ : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib (k.toNat + k.toNat + 1)) + ↑(fib (k.toNat + k.toNat)) := by exact_mod_cast hrec
+                -- `c = F(2k)` is a polynomial identity in F(k), F(k+1): with the
+                -- three product hyps below, F(2k) = F(2k+2) − F(2k+1) gives
+                -- a·(2b−a) exactly. `linear_combination` (targeted `ring`) closes
+                -- it directly — bare `nlinarith [h1Z,h2Z,hrecZ]` instead folds the
+                -- three fib-product hints over the whole context and blows the
+                -- interpreter stack (deep-recursion abort).
                 have hcZ : (c : Int) = ↑(fib (k.toNat + k.toNat)) := by
-                    rw [hc_def, e1, e2]; nlinarith [h1Z, h2Z, hrecZ]
+                    rw [hc_def, e1, e2]; linear_combination h1Z - h2Z + hrecZ
                 have hn : k.toNat + k.toNat = n.toNat := by omega
                 rw [hn] at hcZ
                 omega
