@@ -132,6 +132,99 @@ by {
     )
 }
 
+// Identity [[1,0],[0,1]] is a left unit (for mat_pow_add's base case).
+proof fn mat_id_left_lit(x: Mat2)
+    ensures mat_mul((Mat2 { a: 1, b: 0, c: 0, d: 1 }), x) == x
+by { simp [mat_mul] }
+
+// M^i · M^j = M^(i+j). The exponent law: it's what lets the squaring step
+// "Q^g · Q^g = Q^(2g)" double the exponent. Induction on i (assoc in the step).
+proof fn mat_pow_add(m: Mat2, i: nat, j: nat)
+    ensures mat_mul(mat_pow(m, i), mat_pow(m, j)) == mat_pow(m, i + j)
+    decreases i
+by {
+    if h : i = 0 then (
+        subst h
+        have h0 : mat_pow m 0 = Mat2.mk 1 0 0 1 := by unfold mat_pow; simp
+        rw [h0, show (0 : Nat) + j = j from by omega]
+        exact mat_id_left_lit (mat_pow m j)
+    ) else (
+        have ih := mat_pow_add m (i - 1) j
+        have hi : mat_pow m i = mat_mul m (mat_pow m (i - 1)) := by
+            conv_lhs => unfold mat_pow
+            rw [if_neg (by omega : i ≠ 0)]
+            rw [show ((↑i : Int) - 1).toNat = i - 1 from by omega]
+        have hij : mat_pow m (i + j) = mat_mul m (mat_pow m ((i - 1) + j)) := by
+            conv_lhs => unfold mat_pow
+            rw [if_neg (by omega : i + j ≠ 0)]
+            rw [show ((↑(i + j) : Int) - 1).toNat = (i - 1) + j from by omega]
+        rw [hi, mat_mul_assoc, ih, hij]
+    )
+}
+
+// Monotonicity of fib (reproduced from ch7). Bounds the matrix entries for the
+// overflow checks: every entry of Q^g is some F(index <= n+1) <= F(n+1).
+proof fn fib_mono(k: nat, m: nat)
+    requires k <= m
+    ensures fib(k) <= fib(m)
+    decreases m - k
+by {
+    if h : k = m then (
+        subst h; omega
+    ) else (
+        have ih := fib_mono k (m - 1)
+        have ih_app := ih (by omega)
+        have step : fib (m - 1) <= fib m := by
+            if hm1 : m = 1 then (
+                subst hm1
+                have f0 : fib 0 = 0 := by unfold fib; simp
+                have f1 : fib 1 = 1 := by unfold fib; simp
+                show fib 0 ≤ fib 1
+                omega
+            ) else (
+                have hrec : fib m = fib (m - 1) + fib (m - 2) := by
+                    conv_lhs => unfold fib
+                    rw [if_neg (by omega : m ≠ 0)]
+                    rw [if_neg (by omega : m ≠ 1)]
+                    rw [show ((↑m : Int) - 1).toNat = m - 1 from by omega]
+                    rw [show ((↑m : Int) - 2).toNat = m - 2 from by omega]
+                omega
+            )
+        omega
+    )
+}
+
+// ── The executable layer ────────────────────────────────────────────────────
+// An exec 2x2 matrix of u64, with a spec `view` into the ghost `Mat2`.
+struct M { a: u64, b: u64, c: u64, d: u64 }
+
+spec fn view(m: M) -> Mat2 {
+    Mat2 { a: m.a as nat, b: m.b as nat, c: m.c as nat, d: m.d as nat }
+}
+
+// Executable matrix product. With every entry <= 2^31, each scalar product is
+// <= 2^62 and each output entry (a sum of two) <= 2^63 < 2^64, so nothing
+// overflows u64. `view(mmul x y) == mat_mul(view x, view y)`.
+#[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; constructor <;> nlinarith) | (intros; rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega) | (intros; nlinarith) | (intros; omega)")]
+fn mmul(x: M, y: M) -> (r: M)
+    requires
+        x.a <= 0x8000_0000, x.b <= 0x8000_0000, x.c <= 0x8000_0000, x.d <= 0x8000_0000,
+        y.a <= 0x8000_0000, y.b <= 0x8000_0000, y.c <= 0x8000_0000, y.d <= 0x8000_0000,
+    ensures
+        r.a as nat == (x.a as nat) * (y.a as nat) + (x.b as nat) * (y.c as nat),
+        r.b as nat == (x.a as nat) * (y.b as nat) + (x.b as nat) * (y.d as nat),
+        r.c as nat == (x.c as nat) * (y.a as nat) + (x.d as nat) * (y.c as nat),
+        r.d as nat == (x.c as nat) * (y.b as nat) + (x.d as nat) * (y.d as nat),
+{
+    M {
+        a: x.a * y.a + x.b * y.c,
+        b: x.a * y.b + x.b * y.d,
+        c: x.c * y.a + x.d * y.c,
+        d: x.c * y.b + x.d * y.d,
+    }
+}
+
 fn main() {}
 
 } // verus!
