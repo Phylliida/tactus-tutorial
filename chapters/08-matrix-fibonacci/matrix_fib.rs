@@ -196,6 +196,7 @@ by {
 
 // ── The executable layer ────────────────────────────────────────────────────
 // An exec 2x2 matrix of u64, with a spec `view` into the ghost `Mat2`.
+#[derive(Clone, Copy)]
 struct M { a: u64, b: u64, c: u64, d: u64 }
 
 spec fn view(m: M) -> Mat2 {
@@ -223,6 +224,161 @@ fn mmul(x: M, y: M) -> (r: M)
         c: x.c * y.a + x.d * y.c,
         d: x.c * y.b + x.d * y.d,
     }
+}
+
+// Every entry of Q^g is some F(index <= g+1) <= F(n+1), so when g <= n they all
+// fit under 2^31 (the precondition's bound). Discharges mmul's overflow guards
+// for the by-squaring intermediates (all Q-powers Q^(<=n)).
+proof fn qpow_bounded(g: nat, n: nat)
+    requires g <= n, n >= 1, fib(n + 1) <= 0x8000_0000
+    ensures
+        mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), g).a <= 0x8000_0000,
+        mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), g).b <= 0x8000_0000,
+        mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), g).c <= 0x8000_0000,
+        mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), g).d <= 0x8000_0000
+by {
+    if h : g = 0 then (
+        subst h
+        have h0 : mat_pow (Mat2.mk 1 1 1 0) 0 = Mat2.mk 1 0 0 1 := by unfold mat_pow; simp
+        rw [h0]; simp
+    ) else (
+        have hf := mat_pow_fib (g - 1)
+        rw [show (g - 1) + 1 = g from by omega, show (g - 1) + 2 = g + 1 from by omega] at hf
+        have m1 := fib_mono (g + 1) (n + 1) (by omega)
+        have m2 := fib_mono g (n + 1) (by omega)
+        have m3 := fib_mono (g - 1) (n + 1) (by omega)
+        rw [hf]; simp only [Mat2.mk.injEq]
+        omega
+    )
+}
+
+// Transports qpow_bounded across `view` to the concrete u64 fields: if m views
+// as Q^g with g <= n, its u64 entries are all <= 2^31 (mmul's guard).
+proof fn entries_bounded(m: M, g: nat, n: nat)
+    requires
+        view(m) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), g),
+        g <= n, n >= 1, fib(n + 1) <= 0x8000_0000
+    ensures m.a <= 0x8000_0000, m.b <= 0x8000_0000, m.c <= 0x8000_0000, m.d <= 0x8000_0000
+by {
+    have hb := qpow_bounded g n (by omega) (by omega) (by omega)
+    have hv : view m = mat_pow (Mat2.mk 1 1 1 0) g := by assumption
+    have ea : m.a.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).a := by rw [← hv]; simp [view]
+    have eb : m.b.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).b := by rw [← hv]; simp [view]
+    have ec : m.c.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).c := by rw [← hv]; simp [view]
+    have ed : m.d.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).d := by rw [← hv]; simp [view]
+    omega
+}
+
+// Top-left of Q^n is F(n+1) (n=0: I, .a=1=F(1); else mat_pow_fib).
+proof fn qpow_topleft(n: nat)
+    ensures mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), n).a == fib(n + 1)
+by {
+    if h : n = 0 then (
+        subst h
+        have h0 : mat_pow (Mat2.mk 1 1 1 0) 0 = Mat2.mk 1 0 0 1 := by unfold mat_pow; simp
+        have f1 : fib (0 + 1) = 1 := by unfold fib; simp
+        rw [h0, f1]
+    ) else (
+        have hf := mat_pow_fib (n - 1)
+        rw [show (n - 1) + 1 = n from by omega, show (n - 1) + 2 = n + 1 from by omega] at hf
+        rw [hf]
+    )
+}
+
+// ── The algorithm: Q^n by squaring, O(log n) ────────────────────────────────
+// Recurse on n/2 (like ch7's fast_fib, but on the whole matrix): half = Q^(n/2),
+// sq = half·half = Q^(2·(n/2)), then one more ·Q when n is odd. Verified against
+// the recursive `mat_pow` via `view`. Overflow: every intermediate is a Q-power
+// Q^(<=n), whose entries are Fibonacci values <= F(n+1) <= 2^31 (entries_bounded).
+#[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; assumption) | (intros; omega) | (intros; simp_all) | (intros; nlinarith)")]
+fn qpow_exec(n: u64) -> (r: M)
+    requires fib((n + 1) as nat) <= 0x8000_0000
+    ensures view(r) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), n as nat)
+    decreases n
+{
+    if n == 0 {
+        assert(view((M { a: 1, b: 0, c: 0, d: 1 })) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), 0)) by {
+            intros; simp [view, mat_pow]
+        };
+        M { a: 1, b: 0, c: 0, d: 1 }
+    } else {
+        assert(fib((n / 2 + 1) as nat) <= 0x8000_0000) by {
+            intros
+            have hm := fib_mono ((n / 2 + 1).toNat) ((n + 1).toNat) (by omega);
+            omega
+        };
+        let half = qpow_exec(n / 2);   // view(half) == Q^(n/2)
+        assert(half.a <= 0x8000_0000 && half.b <= 0x8000_0000 && half.c <= 0x8000_0000 && half.d <= 0x8000_0000) by {
+            intros
+            have hb := entries_bounded half (by assumption) ((n / 2).toNat) (n.toNat) (by assumption) (by omega) (by omega) (by rw [show n.toNat + 1 = (n + 1).toNat from by omega]; assumption)
+            omega
+        };
+        let sq = mmul(half, half);
+        // sq = half·half = Q^(n/2 + n/2): view sq = mat_mul (view half) (view half)
+        // from mmul's componentwise ensures, then mat_pow_add doubles the exponent.
+        assert(view(sq) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), (n / 2) as nat + (n / 2) as nat)) by {
+            intros
+            have hvh : view half = mat_pow (Mat2.mk 1 1 1 0) ((n / 2).toNat) := by assumption
+            have hmm : view sq = mat_mul (view half) (view half) := by
+                simp only [view, mat_mul, Mat2.mk.injEq]; omega
+            rw [hmm, hvh]
+            exact mat_pow_add (Mat2.mk 1 1 1 0) ((n / 2).toNat) ((n / 2).toNat)
+        };
+        if n % 2 == 1 {
+            assert(sq.a <= 0x8000_0000 && sq.b <= 0x8000_0000 && sq.c <= 0x8000_0000 && sq.d <= 0x8000_0000) by {
+                intros
+                have hb := entries_bounded sq (by assumption) ((n / 2).toNat + (n / 2).toNat) (n.toNat) (by assumption) (by omega) (by omega) (by rw [show n.toNat + 1 = (n + 1).toNat from by omega]; assumption)
+                omega
+            };
+            assert(view((M { a: 1, b: 1, c: 1, d: 0 })) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), 1)) by {
+                intros; simp [view, mat_pow, mat_mul]
+            };
+            let res = mmul(sq, M { a: 1, b: 1, c: 1, d: 0 });
+            // res = sq·Q = Q^(n/2 + n/2 + 1) = Q^n (n odd).
+            assert(view(res) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), (n / 2) as nat + (n / 2) as nat + 1)) by {
+                intros
+                have hvs : view sq = mat_pow (Mat2.mk 1 1 1 0) ((n / 2).toNat + (n / 2).toNat) := by assumption
+                have hvq : view (M.mk 1 1 1 0) = mat_pow (Mat2.mk 1 1 1 0) 1 := by assumption
+                have hmm : view res = mat_mul (view sq) (view (M.mk 1 1 1 0)) := by
+                    simp only [view, mat_mul, Mat2.mk.injEq]; omega
+                rw [hmm, hvs, hvq]
+                exact mat_pow_add (Mat2.mk 1 1 1 0) ((n / 2).toNat + (n / 2).toNat) 1
+            };
+            assert(view(res) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), n as nat)) by {
+                intros
+                rw [show n.toNat = (n / 2).toNat + (n / 2).toNat + 1 from by omega]
+                assumption
+            };
+            res
+        } else {
+            // view(sq) == Q^(n/2 + n/2) == Q^n (n even).
+            assert(view(sq) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), n as nat)) by {
+                intros
+                rw [show n.toNat = (n / 2).toNat + (n / 2).toNat from by omega]
+                assumption
+            };
+            sq
+        }
+    }
+}
+
+// F(n+1) via matrix exponentiation by squaring — the top-left of Q^n.
+#[verifier::tactus_auto]
+#[verifier::tactus_tactic("first | tactus_auto | (intros; omega)")]
+fn fib_matrix(n: u64) -> (r: u64)
+    requires fib((n + 1) as nat) <= 0x8000_0000
+    ensures r as nat == fib((n + 1) as nat)
+{
+    let q = qpow_exec(n);   // view(q) == Q^n
+    assert(q.a as nat == fib((n + 1) as nat)) by {
+        have hv : view q = mat_pow (Mat2.mk 1 1 1 0) n.toNat := by assumption
+        have ht := qpow_topleft n.toNat
+        rw [show n.toNat + 1 = (n + 1).toNat from by omega] at ht
+        have eqa : q.a.toNat = (mat_pow (Mat2.mk 1 1 1 0) n.toNat).a := by rw [← hv]; simp [view]
+        omega
+    };
+    q.a
 }
 
 fn main() {}
