@@ -183,13 +183,13 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
         assert(b <= 0x8000_0000) by {
             intros
             have hm := fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
-            simp only [a, b, tmp__1, tmp___0] at *
+            simp only [a, b, tmp___0] at *
             omega
         };
         assert(a <= b) by {
             intros
             have hmono := fib_mono (k.toNat) ((k + 1).toNat) (by omega);
-            simp only [a, b, tmp__1, tmp___0] at *
+            simp only [a, b, tmp___0] at *
             omega
         };
         // Overflow bounds for the two products (concrete 2^63 literals, both
@@ -213,8 +213,8 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // F(2k+1) = F(k)^2 + F(k+1)^2  (fib_addition at m=n=k).
             assert(d as nat == fib((n + 1) as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hd_def : (d : Int) = a * a + b * b := by simp only [d, tmp__3]
                 have hd0 : (0 : Int) <= a * a + b * b := by omega
                 have hadd := fib_addition (k.toNat) (k.toNat);
@@ -231,8 +231,8 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // fib_addition, then convert via c ≥ 0.
             assert(c as nat == fib(n as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hc_def : (c : Int) = a * (2 * b - a) := by simp only [c, tmp__2]
                 have hc0 : (0 : Int) <= a * (2 * b - a) := by nlinarith
                 have h1 := fib_addition (k.toNat) (k.toNat);
@@ -272,8 +272,8 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // F(n) = F(2k+1) = F(k)^2 + F(k+1)^2 = d  (same identity as even-d).
             assert(d as nat == fib(n as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hd_def : (d : Int) = a * a + b * b := by simp only [d, tmp__3]
                 have hd0 : (0 : Int) <= a * a + b * b := by omega
                 have hadd := fib_addition (k.toNat) (k.toNat);
@@ -288,8 +288,8 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // = F(k)·F(k+1) + F(k+1)·F(k+2) with F(k+2)=F(k+1)+F(k) (fib_addition + recurrence).
             assert((c + d) as nat == fib((n + 1) as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp__1, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp__1, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hcd_def : (c + d : Int) = a * (2 * b - a) + (a * a + b * b) := by simp only [c, d, tmp__2, tmp__3]
                 have h2 := fib_addition (k.toNat) (k.toNat + 1);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
