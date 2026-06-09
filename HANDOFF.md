@@ -20,7 +20,7 @@ regression command now include the flag.
 
 ## What was built
 
-### Eight tutorial chapters — all verifying clean (0 errors)
+### Nine tutorial chapters — all verifying clean (0 errors)
 
 | Chapter | Topic | README | `.rs` | Verifies |
 |---|---|---|---|---|
@@ -33,13 +33,18 @@ regression command now include the flag.
 | 5 | `pow_by_squaring` — fast (O(log e)) exponentiation vs recursive `pow` ⭐ | ✅ | ✅ | ✅ |
 | 6 | `gcd` — iterative Euclid vs recursive `gcd` (mod reasoning) ⭐ | ✅ | ✅ | ✅ |
 | 7 | `fast_fib` — O(log n) fast-doubling Fibonacci ⭐ | ✅ | ✅ | ✅ |
+| 8 | `fib_matrix` — Q-matrix power by squaring; **unifies ch5 + ch7** ⭐ | ✅ | ✅ | ✅ |
 
-All chapters 0–7 verify with **0 errors** under `--lean-backend`. (Do not track
+All chapters 0–8 verify with **0 errors** under `--lean-backend`. (Do not track
 exact "N verified" counts — they shift between Tactus versions; see "On
-obligation counts" below.) Chapter 7 — the Fibonacci-thread capstone — is the
-recursive `fast_fib(n) = (F(n), F(n+1))` verified end-to-end: both doubling
-identities (from ch3's `fib_addition`), product-overflow safety, and `decreases`
-termination.
+obligation counts" below.) Chapter 7 — `fast_fib(n) = (F(n), F(n+1))` — is
+verified end-to-end (both doubling identities from ch3's `fib_addition`,
+overflow, `decreases`). **Chapter 8 closes the arc**: `Q^n` (`Q=[[1,1],[1,0]]`)
+by exponentiation-by-squaring, verified against the recursive `mat_pow` spec via
+a `view` from an exec `M` (u64) to a ghost `Mat2` (nat); its `mat_pow_square`
+(`mat_pow(M·M,k) = mat_pow(M,2k)`) is *literally* ch5's `pow_square` with
+`* → mat_mul`, and the exec mirrors ch7's `fast_fib` on the full matrix —
+machine-checked proof that the two "tricks" are one.
 
 The arc: induction-in-a-line (1) → strong induction (3) → iterative-vs-recursive
 exec verification (1/2/4) → a *faster-than-its-spec* algorithm proven correct (5)
@@ -149,8 +154,8 @@ Note the **`--lean-backend`** flag — required (see top of this file).
 
 Expected: every line ends with `0 errors` (the `N verified` number is not meaningful — see "On obligation counts").
 
-Last full regression: chapters 0–7 (9 `.rs` files: 1, 2×2, 2.5, 3, 4, 5, 6, 7),
-all **0 errors** under `--lean-backend`, 2026-06-07.
+Last full regression: chapters 0–8 (10 `.rs` files: 1, 2×2, 2.5, 3, 4, 5, 6, 7,
+8), all **0 errors** under `--lean-backend`, 2026-06-09.
 
 ## Next steps
 
@@ -191,9 +196,35 @@ genuinely expand `a·(2b−a)`, so they need **`nlinarith`**. Using `nlinarith` 
 the former whnf-loops on the noncomputable `fib`. ch7 also raises `heartbeats`
 (the whole-fn proof is large — many asserts over a deep let context).
 
+### Techniques discovered building chapter 8 (matrix-power Fibonacci)
+
+- **Runtime-layer `view`.** The math is over a ghost `struct Mat2 { a..d: nat }`;
+  the exec fn works on `struct M { a..d: u64 }` with `spec fn view(m: M) -> Mat2`.
+  Exec ops (`mmul`) `ensure` componentwise `r.a as nat == … (cast-bridged)`, and
+  call sites lift componentwise → `view r == mat_mul(view x, view y)` via
+  `simp only [view, mat_mul, Mat2.mk.injEq]; omega`.
+- **`#[derive(Clone, Copy)]` on the exec matrix struct.** Without it,
+  `mmul(half, half)` (using `half` twice) is a Rust move error. u64 fields make
+  `Copy` trivial.
+- **Inline matrix literals, not nullary spec fns.** `Q`/`I` are written as
+  `Mat2 { a:1, b:1, c:1, d:0 }` literals everywhere (incl. inside `mat_pow`'s base
+  case and in proof terms as `Mat2.mk 1 1 1 0`). A 0-arg `spec fn` renders with
+  inconsistent arity across the per-fn vs aggregate Lean files (see the related
+  finding in `BUG-call-result-let-unnameable-in-assert.md`); literals render
+  identically, sidestepping it.
+- **Struct literals in clauses need parens.** `ensures … == (Mat2 { … })` and
+  `mat_pow((Mat2 { … }), n)`; and a proof fn's `ensures` list must NOT have a
+  trailing comma before `by`.
+- **Naming a call result in an assert-by works** (post the Approach-A fix): `let
+  q = f(n); assert(P(q)) by { have hv : … q … := by assumption; … }`. Pre-fix
+  this was "Unknown identifier `q`" (the call result was a goal-position let).
+
 ### Tactus bugs surfaced + fixed this arc
 
 `BUG-spec-fn-decreases-mod-termination` (gcd's `a % b < b`), the `--lean-backend`
-`main.lean` Mathlib-import drop, and `BUG-tuple-destructure-alias-temps-block-omega`
-(fast_fib's tuple destructure) were all reported and fixed upstream — see the
-`verus-cad/` repo root.
+`main.lean` Mathlib-import drop, `BUG-tuple-destructure-alias-temps-block-omega`
+(fast_fib's tuple destructure), and `BUG-call-result-let-unnameable-in-assert`
+(ch8's `fib_matrix` wrapper) were all reported and fixed upstream — see the
+`verus-cad/` repo root. The call-result fix changed the tuple-destructure
+lowering (the result is now a `∀`-binder, alias temps dropped), so ch7's
+`simp only [a, b, tmp__1, tmp___0]` had to drop the now-defunct `tmp__1`.
