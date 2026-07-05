@@ -46,7 +46,6 @@ spec fn gcd(a: nat, b: nat) -> nat
 // for the old measure: `intros` introduces that let so `omega` can chain the
 // asserted `x % y < y` (the new y) against it.
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; omega)")]
 fn gcd_iter(a: u64, b: u64) -> (g: u64)
     ensures g as nat == gcd(a as nat, b as nat)
 {

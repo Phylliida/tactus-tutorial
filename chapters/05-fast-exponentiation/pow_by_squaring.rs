@@ -108,7 +108,6 @@ by {
 // can't (the `1 <= b` / `1 <= result` maintains, overflow checks); the
 // per-step asserts feed it the recurrence facts about `pow`.
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; omega) | (intros; nlinarith)")]
 fn pow_iter(base: u64, exp: u64) -> (r: u64)
     requires
         base >= 1,
@@ -178,6 +177,12 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
                 have hb : (0 : Int) <= b := by omega
                 nlinarith [hr, hb]
             };
+            // Maintain `1 <= result`: after `result = result * b`, the product
+            // is >= 1 from `1 <= result` and `1 <= b`. Previously absorbed by
+            // the whole-fn closer's `(intros; nlinarith)`; now a local
+            // fixed-menu `by(nonlinear_arith)` at the exact site.
+            assert(1 <= result * b) by(nonlinear_arith)
+                requires 1 <= result, 1 <= b;
             result = result * b;
         } else {
             // Even: pow(b,e) = pow(b*b, e/2)  (since 2*(e/2) = e).
@@ -197,6 +202,8 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
             have hb : (0 : Int) <= b := by omega
             nlinarith [hb]
         };
+        // Maintain `1 <= b`: after `b = b * b`, `b*b >= 1` from `1 <= b`.
+        assert(1 <= b * b) by(nonlinear_arith) requires 1 <= b;
         b = b * b;
         e = e / 2;
     }
