@@ -147,7 +147,6 @@ by {
 // a*(2*b-a)) from the `a <= b <= 2^31` bounds; `omega` handles the linear/cast
 // obligations and the loop decrease.
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; omega) | (intros; nlinarith)")]
 #[verifier::heartbeats(4000000)]
 fn fast_fib(n: u64) -> (res: (u64, u64))
     requires fib((n + 1) as nat) <= 0x8000_0000

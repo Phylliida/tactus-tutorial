@@ -99,15 +99,14 @@ by {
 // Some obligations need help beyond the default closer (`rfl | decide |
 // omega | simp_all | …`): the loop-invariant maintain step and the
 // postcondition both involve *nonlinear* arithmetic (the product
-// `i * (i + 1)`), which `omega` can't handle. Rather than scatter
-// `assert(P) by { … }` blocks through the body, we extend the whole-fn
-// closer once with `#[verifier::tactus_tactic(...)]`: try the default
-// `tactus_auto`, and on anything it leaves open, run `intros; nlinarith`.
-// `intros` brings the loop variables and invariants into scope; then
-// `nlinarith` (from Mathlib) discharges the polynomial obligations.
+// `i * (i + 1)`), which `omega` can't handle. We discharge exactly those
+// steps with the fixed-menu `by(nonlinear_arith)` selector (Verus-native;
+// maps to Lean `nlinarith`) placed at the precise site — the invariant
+// algebra stated for the *next* state just before we mutate, and the
+// substitution `i == n` after the loop. The default `tactus_auto` closes
+// everything else, so no whole-fn closer override is needed.
 
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; nlinarith)")]
 fn sum_iter(n: u64) -> (r: u64)
     requires n <= 1000
     ensures 2 * r == n * (n + 1)
@@ -124,9 +123,24 @@ fn sum_iter(n: u64) -> (r: u64)
             result <= 1001 * 1001,
         decreases n - i
     {
+        // Invariant maintenance here is *nonlinear* (the product `i * (i + 1)`),
+        // which the default closer's `omega` / `simp_all` can't reach. Rather
+        // than override the whole-fn closer with a raw tactic string, we place
+        // the fixed-menu `by(nonlinear_arith)` selector (Verus-native; maps to
+        // Lean `nlinarith`) on exactly the two nonlinear steps, stated for the
+        // *next* state before mutating. `tactus_auto` then closes the invariant
+        // from these facts plus the assignment equalities.
+        assert(2 * (result + (i + 1)) == (i + 1) * (i + 2)) by(nonlinear_arith)
+            requires 2 * result == i * (i + 1);
+        assert(result + (i + 1) <= 1001 * 1001) by(nonlinear_arith)
+            requires 2 * result == i * (i + 1), 0 <= i, i < n, n <= 1000;
         i = i + 1;
         result = result + i;
     }
+    // Exit: `i == n` (from `i <= n` and the failed loop test), so substitute it
+    // into the nonlinear invariant to land the postcondition.
+    assert(2 * result == n * (n + 1)) by(nonlinear_arith)
+        requires 2 * result == i * (i + 1), i == n;
     result
 }
 

@@ -203,11 +203,35 @@ spec fn view(m: M) -> Mat2 {
     Mat2 { a: m.a as nat, b: m.b as nat, c: m.c as nat, d: m.d as nat }
 }
 
-// Executable matrix product. With every entry <= 2^31, each scalar product is
-// <= 2^62 and each output entry (a sum of two) <= 2^63 < 2^64, so nothing
-// overflows u64. `view(mmul x y) == mat_mul(view x, view y)`.
+// One overflow-checked matrix entry `p*q + r*s`, with its u64→nat view. Every
+// step here is nonlinear (`nlinarith`), so the entry lives in its own fn: the
+// bound/bridge `assert`s stay scoped to this small proof context. (An inline
+// `assert` threads its fact as a hypothesis into every later goal in the same
+// fn; keeping only ~4 of them here means the auto-closer never faces the
+// ~40-hypothesis goal that a single flattened `mmul` body would produce.)
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; constructor <;> nlinarith) | (intros; rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega) | (intros; nlinarith) | (intros; omega)")]
+fn entry(p: u64, q: u64, r: u64, s: u64) -> (out: u64)
+    requires p <= 0x8000_0000, q <= 0x8000_0000, r <= 0x8000_0000, s <= 0x8000_0000
+    ensures out as nat == (p as nat) * (q as nat) + (r as nat) * (s as nat)
+{
+    // Overflow: each product in [0, 2^62], so the sum is < 2^64.
+    assert(0 <= p * q && p * q <= 0x4000_0000_0000_0000) by { intros; constructor <;> nlinarith };
+    assert(0 <= r * s && r * s <= 0x4000_0000_0000_0000) by { intros; constructor <;> nlinarith };
+    assert(p * q + r * s <= 0x8000_0000_0000_0000) by { intros; omega };
+    let out: u64 = p * q + r * s;
+    // u64→nat bridge: `toNat` distributes over the sum and each product.
+    assert(out as nat == (p as nat) * (q as nat) + (r as nat) * (s as nat)) by {
+        intros
+        rw [Int.toNat_add (by nlinarith) (by nlinarith), Int.toNat_mul, Int.toNat_mul] <;> try omega
+    };
+    out
+}
+
+// Executable matrix product. Each entry is delegated to `entry`, so mmul's body
+// carries no proof obligations of its own beyond stitching the four results —
+// its postconditions follow directly from `entry`'s `ensures`.
+// `view(mmul x y) == mat_mul(view x, view y)`.
+#[verifier::tactus_auto]
 fn mmul(x: M, y: M) -> (r: M)
     requires
         x.a <= 0x8000_0000, x.b <= 0x8000_0000, x.c <= 0x8000_0000, x.d <= 0x8000_0000,
@@ -219,10 +243,10 @@ fn mmul(x: M, y: M) -> (r: M)
         r.d as nat == (x.c as nat) * (y.b as nat) + (x.d as nat) * (y.d as nat),
 {
     M {
-        a: x.a * y.a + x.b * y.c,
-        b: x.a * y.b + x.b * y.d,
-        c: x.c * y.a + x.d * y.c,
-        d: x.c * y.b + x.d * y.d,
+        a: entry(x.a, y.a, x.b, y.c),
+        b: entry(x.a, y.b, x.b, y.d),
+        c: entry(x.c, y.a, x.d, y.c),
+        d: entry(x.c, y.b, x.d, y.d),
     }
 }
 
@@ -291,7 +315,6 @@ by {
 // the recursive `mat_pow` via `view`. Overflow: every intermediate is a Q-power
 // Q^(<=n), whose entries are Fibonacci values <= F(n+1) <= 2^31 (entries_bounded).
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; assumption) | (intros; omega) | (intros; simp_all) | (intros; nlinarith)")]
 fn qpow_exec(n: u64) -> (r: M)
     requires fib((n + 1) as nat) <= 0x8000_0000
     ensures view(r) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), n as nat)
@@ -365,7 +388,6 @@ fn qpow_exec(n: u64) -> (r: M)
 
 // F(n+1) via matrix exponentiation by squaring — the top-left of Q^n.
 #[verifier::tactus_auto]
-#[verifier::tactus_tactic("first | tactus_auto | (intros; omega)")]
 fn fib_matrix(n: u64) -> (r: u64)
     requires fib((n + 1) as nat) <= 0x8000_0000
     ensures r as nat == fib((n + 1) as nat)
