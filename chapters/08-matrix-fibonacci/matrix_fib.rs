@@ -51,12 +51,12 @@ by {
     if h : n = 0 then (
         subst h
         -- Q^1 = Q·Q^0 = Q·I = Q = [[1,1],[1,0]] = [[F(2),F(1)],[F(1),F(0)]].
-        have hq : mat_pow (Mat2.mk 1 1 1 0) (0 + 1) = Mat2.mk 1 1 1 0 := by
-            conv_lhs => unfold mat_pow
+        have hq : matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) (0 + 1) = matrix_fib.Mat2.mk 1 1 1 0 := by
+            conv_lhs => unfold matrix_fib.mat_pow
             rw [if_neg (by omega : (0 + 1 : Nat) ≠ 0)]
             rw [show ((↑(0 + 1 : Nat) : Int) - 1).toNat = 0 from by omega]
-            conv_lhs => rw [show mat_pow (Mat2.mk 1 1 1 0) 0 = Mat2.mk 1 0 0 1 from by unfold mat_pow; simp]
-            simp [mat_mul]
+            conv_lhs => rw [show matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) 0 = matrix_fib.Mat2.mk 1 0 0 1 from by unfold matrix_fib.mat_pow; simp]
+            simp [matrix_fib.mat_mul]
         have f0 : fib 0 = 0 := by unfold fib; simp
         have f1 : fib (0 + 1) = 1 := by unfold fib; simp
         have f2 : fib (0 + 2) = 1 := by
@@ -71,10 +71,10 @@ by {
         have e_idx1 : (n - 1) + 1 = n := by omega
         have e_idx2 : (n - 1) + 2 = n + 1 := by omega
         rw [e_idx1, e_idx2] at ih
-        -- ih : mat_pow Q n = Mat2.mk (fib (n+1)) (fib n) (fib n) (fib (n-1))
-        have hstep : mat_pow (Mat2.mk 1 1 1 0) (n + 1)
-                = mat_mul (Mat2.mk 1 1 1 0) (mat_pow (Mat2.mk 1 1 1 0) n) := by
-            conv_lhs => unfold mat_pow
+        -- ih : matrix_fib.mat_pow Q n = matrix_fib.Mat2.mk (fib (n+1)) (fib n) (fib n) (fib (n-1))
+        have hstep : matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) (n + 1)
+                = matrix_fib.mat_mul (matrix_fib.Mat2.mk 1 1 1 0) (matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) n) := by
+            conv_lhs => unfold matrix_fib.mat_pow
             rw [if_neg (by omega : (n + 1 : Nat) ≠ 0)]
             rw [show ((↑(n + 1 : Nat) : Int) - 1).toNat = n from by omega]
         have rec1 : fib (n + 2) = fib (n + 1) + fib n := by
@@ -88,7 +88,7 @@ by {
             rw [show ((↑(n + 1 : Nat) : Int) - 1).toNat = n from by omega]
             rw [show ((↑(n + 1 : Nat) : Int) - 2).toNat = n - 1 from by omega]
         rw [hstep, ih]
-        simp [mat_mul, Mat2.mk.injEq]
+        simp [matrix_fib.mat_mul, matrix_fib.Mat2.mk.injEq]
         omega
     )
 }
@@ -99,7 +99,7 @@ by {
 proof fn mat_mul_assoc(x: Mat2, y: Mat2, z: Mat2)
     ensures mat_mul(mat_mul(x, y), z) == mat_mul(x, mat_mul(y, z))
 by {
-    simp only [mat_mul, Mat2.mk.injEq]
+    simp only [matrix_fib.mat_mul, matrix_fib.Mat2.mk.injEq]
     refine ⟨?_, ?_, ?_, ?_⟩ <;> ring
 }
 
@@ -115,27 +115,27 @@ proof fn mat_pow_square(m: Mat2, k: nat)
 by {
     if h : k = 0 then (
         subst h
-        simp [mat_pow]
+        simp [matrix_fib.mat_pow]
     ) else (
         have ih := mat_pow_square m (k - 1)
-        conv_lhs => unfold mat_pow
+        conv_lhs => unfold matrix_fib.mat_pow
         rw [if_neg (by omega : k ≠ 0)]
         rw [show ((↑k : Int) - 1).toNat = k - 1 from by omega]
-        conv_rhs => unfold mat_pow
+        conv_rhs => unfold matrix_fib.mat_pow
         rw [if_neg (by omega : 2 * k ≠ 0)]
         rw [show ((↑(2 * k) : Int) - 1).toNat = 2 * k - 1 from by omega]
-        conv_rhs => unfold mat_pow
+        conv_rhs => unfold matrix_fib.mat_pow
         rw [if_neg (by omega : 2 * k - 1 ≠ 0)]
         rw [show ((↑(2 * k - 1) : Int) - 1).toNat = 2 * (k - 1) from by omega]
         rw [ih]
-        exact mat_mul_assoc m m (mat_pow m (2 * (k - 1)))
+        exact mat_mul_assoc m m (matrix_fib.mat_pow m (2 * (k - 1)))
     )
 }
 
 // Identity [[1,0],[0,1]] is a left unit (for mat_pow_add's base case).
 proof fn mat_id_left_lit(x: Mat2)
     ensures mat_mul((Mat2 { a: 1, b: 0, c: 0, d: 1 }), x) == x
-by { simp [mat_mul] }
+by { simp [matrix_fib.mat_mul] }
 
 // M^i · M^j = M^(i+j). The exponent law: it's what lets the squaring step
 // "Q^g · Q^g = Q^(2g)" double the exponent. Induction on i (assoc in the step).
@@ -145,17 +145,17 @@ proof fn mat_pow_add(m: Mat2, i: nat, j: nat)
 by {
     if h : i = 0 then (
         subst h
-        have h0 : mat_pow m 0 = Mat2.mk 1 0 0 1 := by unfold mat_pow; simp
+        have h0 : matrix_fib.mat_pow m 0 = matrix_fib.Mat2.mk 1 0 0 1 := by unfold matrix_fib.mat_pow; simp
         rw [h0, show (0 : Nat) + j = j from by omega]
-        exact mat_id_left_lit (mat_pow m j)
+        exact mat_id_left_lit (matrix_fib.mat_pow m j)
     ) else (
-        have ih := mat_pow_add m (i - 1) j
-        have hi : mat_pow m i = mat_mul m (mat_pow m (i - 1)) := by
-            conv_lhs => unfold mat_pow
+        have ih := matrix_fib.mat_pow_add m (i - 1) j
+        have hi : matrix_fib.mat_pow m i = matrix_fib.mat_mul m (matrix_fib.mat_pow m (i - 1)) := by
+            conv_lhs => unfold matrix_fib.mat_pow
             rw [if_neg (by omega : i ≠ 0)]
             rw [show ((↑i : Int) - 1).toNat = i - 1 from by omega]
-        have hij : mat_pow m (i + j) = mat_mul m (mat_pow m ((i - 1) + j)) := by
-            conv_lhs => unfold mat_pow
+        have hij : matrix_fib.mat_pow m (i + j) = matrix_fib.mat_mul m (matrix_fib.mat_pow m ((i - 1) + j)) := by
+            conv_lhs => unfold matrix_fib.mat_pow
             rw [if_neg (by omega : i + j ≠ 0)]
             rw [show ((↑(i + j) : Int) - 1).toNat = (i - 1) + j from by omega]
         rw [hi, mat_mul_assoc, ih, hij]
@@ -172,7 +172,7 @@ by {
     if h : k = m then (
         subst h; omega
     ) else (
-        have ih := fib_mono k (m - 1)
+        have ih := matrix_fib.fib_mono k (m - 1)
         have ih_app := ih (by omega)
         have step : fib (m - 1) <= fib m := by
             if hm1 : m = 1 then (
@@ -263,15 +263,15 @@ proof fn qpow_bounded(g: nat, n: nat)
 by {
     if h : g = 0 then (
         subst h
-        have h0 : mat_pow (Mat2.mk 1 1 1 0) 0 = Mat2.mk 1 0 0 1 := by unfold mat_pow; simp
+        have h0 : matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) 0 = matrix_fib.Mat2.mk 1 0 0 1 := by unfold matrix_fib.mat_pow; simp
         rw [h0]; simp
     ) else (
         have hf := mat_pow_fib (g - 1)
         rw [show (g - 1) + 1 = g from by omega, show (g - 1) + 2 = g + 1 from by omega] at hf
-        have m1 := fib_mono (g + 1) (n + 1) (by omega)
-        have m2 := fib_mono g (n + 1) (by omega)
-        have m3 := fib_mono (g - 1) (n + 1) (by omega)
-        rw [hf]; simp only [Mat2.mk.injEq]
+        have m1 := matrix_fib.fib_mono (g + 1) (n + 1) (by omega)
+        have m2 := matrix_fib.fib_mono g (n + 1) (by omega)
+        have m3 := matrix_fib.fib_mono (g - 1) (n + 1) (by omega)
+        rw [hf]; simp only [matrix_fib.Mat2.mk.injEq]
         omega
     )
 }
@@ -285,11 +285,11 @@ proof fn entries_bounded(m: M, g: nat, n: nat)
     ensures m.a <= 0x8000_0000, m.b <= 0x8000_0000, m.c <= 0x8000_0000, m.d <= 0x8000_0000
 by {
     have hb := qpow_bounded g n (by omega) (by omega) (by omega)
-    have hv : view m = mat_pow (Mat2.mk 1 1 1 0) g := by assumption
-    have ea : m.a.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).a := by rw [← hv]; simp [view]
-    have eb : m.b.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).b := by rw [← hv]; simp [view]
-    have ec : m.c.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).c := by rw [← hv]; simp [view]
-    have ed : m.d.toNat = (mat_pow (Mat2.mk 1 1 1 0) g).d := by rw [← hv]; simp [view]
+    have hv : matrix_fib.view m = matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) g := by assumption
+    have ea : m.a.toNat = (matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) g).a := by rw [← hv]; simp [matrix_fib.view]
+    have eb : m.b.toNat = (matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) g).b := by rw [← hv]; simp [matrix_fib.view]
+    have ec : m.c.toNat = (matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) g).c := by rw [← hv]; simp [matrix_fib.view]
+    have ed : m.d.toNat = (matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) g).d := by rw [← hv]; simp [matrix_fib.view]
     omega
 }
 
@@ -299,7 +299,7 @@ proof fn qpow_topleft(n: nat)
 by {
     if h : n = 0 then (
         subst h
-        have h0 : mat_pow (Mat2.mk 1 1 1 0) 0 = Mat2.mk 1 0 0 1 := by unfold mat_pow; simp
+        have h0 : matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) 0 = matrix_fib.Mat2.mk 1 0 0 1 := by unfold matrix_fib.mat_pow; simp
         have f1 : fib (0 + 1) = 1 := by unfold fib; simp
         rw [h0, f1]
     ) else (
@@ -322,19 +322,19 @@ fn qpow_exec(n: u64) -> (r: M)
 {
     if n == 0 {
         assert(view((M { a: 1, b: 0, c: 0, d: 1 })) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), 0)) by {
-            intros; simp [view, mat_pow]
+            intros; simp [matrix_fib.view, matrix_fib.mat_pow]
         };
         M { a: 1, b: 0, c: 0, d: 1 }
     } else {
         assert(fib((n / 2 + 1) as nat) <= 0x8000_0000) by {
             intros
-            have hm := fib_mono ((n / 2 + 1).toNat) ((n + 1).toNat) (by omega);
+            have hm := matrix_fib.fib_mono ((n / 2 + 1).toNat) ((n + 1).toNat) (by omega);
             omega
         };
         let half = qpow_exec(n / 2);   // view(half) == Q^(n/2)
         assert(half.a <= 0x8000_0000 && half.b <= 0x8000_0000 && half.c <= 0x8000_0000 && half.d <= 0x8000_0000) by {
             intros
-            have hb := entries_bounded half (by assumption) ((n / 2).toNat) (n.toNat) (by assumption) (by omega) (by omega) (by rw [show n.toNat + 1 = (n + 1).toNat from by omega]; assumption)
+            have hb := matrix_fib.entries_bounded half (by assumption) ((n / 2).toNat) (n.toNat) (by assumption) (by omega) (by omega) (by rw [show n.toNat + 1 = (n + 1).toNat from by omega]; assumption)
             omega
         };
         let sq = mmul(half, half);
@@ -342,31 +342,31 @@ fn qpow_exec(n: u64) -> (r: M)
         // from mmul's componentwise ensures, then mat_pow_add doubles the exponent.
         assert(view(sq) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), (n / 2) as nat + (n / 2) as nat)) by {
             intros
-            have hvh : view half = mat_pow (Mat2.mk 1 1 1 0) ((n / 2).toNat) := by assumption
-            have hmm : view sq = mat_mul (view half) (view half) := by
-                simp only [view, mat_mul, Mat2.mk.injEq]; omega
+            have hvh : matrix_fib.view half = matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) ((n / 2).toNat) := by assumption
+            have hmm : matrix_fib.view sq = matrix_fib.mat_mul (matrix_fib.view half) (matrix_fib.view half) := by
+                simp only [matrix_fib.view, matrix_fib.mat_mul, matrix_fib.Mat2.mk.injEq]; omega
             rw [hmm, hvh]
-            exact mat_pow_add (Mat2.mk 1 1 1 0) ((n / 2).toNat) ((n / 2).toNat)
+            exact matrix_fib.mat_pow_add (matrix_fib.Mat2.mk 1 1 1 0) ((n / 2).toNat) ((n / 2).toNat)
         };
         if n % 2 == 1 {
             assert(sq.a <= 0x8000_0000 && sq.b <= 0x8000_0000 && sq.c <= 0x8000_0000 && sq.d <= 0x8000_0000) by {
                 intros
-                have hb := entries_bounded sq (by assumption) ((n / 2).toNat + (n / 2).toNat) (n.toNat) (by assumption) (by omega) (by omega) (by rw [show n.toNat + 1 = (n + 1).toNat from by omega]; assumption)
+                have hb := matrix_fib.entries_bounded sq (by assumption) ((n / 2).toNat + (n / 2).toNat) (n.toNat) (by assumption) (by omega) (by omega) (by rw [show n.toNat + 1 = (n + 1).toNat from by omega]; assumption)
                 omega
             };
             assert(view((M { a: 1, b: 1, c: 1, d: 0 })) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), 1)) by {
-                intros; simp [view, mat_pow, mat_mul]
+                intros; simp [matrix_fib.view, matrix_fib.mat_pow, matrix_fib.mat_mul]
             };
             let res = mmul(sq, M { a: 1, b: 1, c: 1, d: 0 });
             // res = sq·Q = Q^(n/2 + n/2 + 1) = Q^n (n odd).
             assert(view(res) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), (n / 2) as nat + (n / 2) as nat + 1)) by {
                 intros
-                have hvs : view sq = mat_pow (Mat2.mk 1 1 1 0) ((n / 2).toNat + (n / 2).toNat) := by assumption
-                have hvq : view (M.mk 1 1 1 0) = mat_pow (Mat2.mk 1 1 1 0) 1 := by assumption
-                have hmm : view res = mat_mul (view sq) (view (M.mk 1 1 1 0)) := by
-                    simp only [view, mat_mul, Mat2.mk.injEq]; omega
+                have hvs : matrix_fib.view sq = matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) ((n / 2).toNat + (n / 2).toNat) := by assumption
+                have hvq : matrix_fib.view (matrix_fib.M.mk 1 1 1 0) = matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) 1 := by assumption
+                have hmm : matrix_fib.view res = matrix_fib.mat_mul (matrix_fib.view sq) (matrix_fib.view (matrix_fib.M.mk 1 1 1 0)) := by
+                    simp only [matrix_fib.view, matrix_fib.mat_mul, matrix_fib.Mat2.mk.injEq]; omega
                 rw [hmm, hvs, hvq]
-                exact mat_pow_add (Mat2.mk 1 1 1 0) ((n / 2).toNat + (n / 2).toNat) 1
+                exact matrix_fib.mat_pow_add (matrix_fib.Mat2.mk 1 1 1 0) ((n / 2).toNat + (n / 2).toNat) 1
             };
             assert(view(res) == mat_pow((Mat2 { a: 1, b: 1, c: 1, d: 0 }), n as nat)) by {
                 intros
@@ -394,10 +394,10 @@ fn fib_matrix(n: u64) -> (r: u64)
 {
     let q = qpow_exec(n);   // view(q) == Q^n
     assert(q.a as nat == fib((n + 1) as nat)) by {
-        have hv : view q = mat_pow (Mat2.mk 1 1 1 0) n.toNat := by assumption
-        have ht := qpow_topleft n.toNat
+        have hv : matrix_fib.view q = matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) n.toNat := by assumption
+        have ht := matrix_fib.qpow_topleft n.toNat
         rw [show n.toNat + 1 = (n + 1).toNat from by omega] at ht
-        have eqa : q.a.toNat = (mat_pow (Mat2.mk 1 1 1 0) n.toNat).a := by rw [← hv]; simp [view]
+        have eqa : q.a.toNat = (matrix_fib.mat_pow (matrix_fib.Mat2.mk 1 1 1 0) n.toNat).a := by rw [← hv]; simp [matrix_fib.view]
         omega
     };
     q.a

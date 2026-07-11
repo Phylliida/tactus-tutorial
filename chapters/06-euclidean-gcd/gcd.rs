@@ -81,8 +81,8 @@ fn gcd_iter(a: u64, b: u64) -> (g: u64)
             intros
             have hmod : ((x % y : Int)).toNat = x.toNat % y.toNat :=
                 Int.toNat_emod (by omega) (by omega)
-            have hunf : gcd x.toNat y.toNat = gcd y.toNat (x.toNat % y.toNat) := by
-                conv_lhs => unfold gcd
+            have hunf : gcd.gcd x.toNat y.toNat = gcd.gcd y.toNat (x.toNat % y.toNat) := by
+                conv_lhs => unfold gcd.gcd
                 rw [if_neg (by omega : y.toNat ≠ 0)]
             rw [hmod, ← hunf]
             assumption
@@ -102,10 +102,10 @@ fn gcd_iter(a: u64, b: u64) -> (g: u64)
     assert(x as nat == gcd(a as nat, b as nat)) by {
         intros
         have hy0 : y.toNat = 0 := by omega
-        have hbase : gcd x.toNat (0 : Nat) = x.toNat := by unfold gcd; simp
-        have hinv : gcd x.toNat y.toNat = gcd a.toNat b.toNat := by assumption
+        have hbase : gcd.gcd x.toNat (0 : Nat) = x.toNat := by unfold gcd.gcd; simp
+        have hinv : gcd.gcd x.toNat y.toNat = gcd.gcd a.toNat b.toNat := by assumption
         rw [hy0] at hinv
-        rw [hbase] at hinv      -- hinv : x.toNat = gcd a.toNat b.toNat
+        rw [hbase] at hinv      -- hinv : x.toNat = gcd.gcd a.toNat b.toNat
         omega
     };
     x

@@ -32,15 +32,15 @@ proof fn pow_pos(base: nat, e: nat)
     decreases e
 by {
     if h : e = 0 then (
-        subst h; unfold pow; simp
+        subst h; unfold pow_by_squaring.pow; simp
     ) else (
-        have ih := pow_pos base (e - 1)
-        have rec_app : pow base e = base * pow base ((↑e - 1 : Int).toNat) := by
-            conv_lhs => unfold pow
+        have ih := pow_by_squaring.pow_pos base (e - 1)
+        have rec_app : pow_by_squaring.pow base e = base * pow_by_squaring.pow base ((↑e - 1 : Int).toNat) := by
+            conv_lhs => unfold pow_by_squaring.pow
             rw [if_neg (by omega : e ≠ 0)]
         have ee : ((↑e - 1 : Int).toNat) = e - 1 := by omega
         rw [ee] at rec_app
-        have h_prod : 1 * 1 <= base * pow base (e - 1) := by
+        have h_prod : 1 * 1 <= base * pow_by_squaring.pow base (e - 1) := by
             apply Nat.mul_le_mul <;> omega
         omega
     )
@@ -52,17 +52,17 @@ proof fn pow_ge_base(base: nat, e: nat)
     ensures pow(base, e) >= base
     decreases e
 by {
-    have hrec : pow base e = base * pow base (e - 1) := by
-        conv_lhs => unfold pow
+    have hrec : pow_by_squaring.pow base e = base * pow_by_squaring.pow base (e - 1) := by
+        conv_lhs => unfold pow_by_squaring.pow
         rw [if_neg (by omega : e ≠ 0)]
         rw [show ((e : Int) - 1).toNat = e - 1 from by omega]
     if h : e = 1 then (
         rw [hrec]
         rw [show (e - 1) = 0 from by omega]
-        unfold pow
+        unfold pow_by_squaring.pow
         simp
     ) else (
-        have ih := pow_ge_base base (e - 1) (by omega) (by omega)
+        have ih := pow_by_squaring.pow_ge_base base (e - 1) (by omega) (by omega)
         rw [hrec]
         nlinarith [ih]
     )
@@ -76,16 +76,16 @@ proof fn pow_square(base: nat, k: nat)
     decreases k
 by {
     if h : k = 0 then (
-        subst h; unfold pow; simp
+        subst h; unfold pow_by_squaring.pow; simp
     ) else (
-        have ih := pow_square base (k - 1)
-        conv_lhs => unfold pow
+        have ih := pow_by_squaring.pow_square base (k - 1)
+        conv_lhs => unfold pow_by_squaring.pow
         rw [if_neg (by omega : k ≠ 0)]
         rw [show ((↑k : Int) - 1).toNat = k - 1 from by omega]
-        conv_rhs => unfold pow
+        conv_rhs => unfold pow_by_squaring.pow
         rw [if_neg (by omega : 2 * k ≠ 0)]
         rw [show ((↑(2 * k) : Int) - 1).toNat = 2 * k - 1 from by omega]
-        conv_rhs => unfold pow
+        conv_rhs => unfold pow_by_squaring.pow
         rw [if_neg (by omega : 2 * k - 1 ≠ 0)]
         rw [show ((↑(2 * k - 1) : Int) - 1).toNat = 2 * (k - 1) from by omega]
         rw [ih]
@@ -129,9 +129,9 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
         // nat statement (where the invariant lives), then omega lifts it.
         assert(b as nat <= pow(base as nat, exp as nat)) by {
             intros
-            have hge := pow_ge_base b.toNat e.toNat (by omega) (by omega)
+            have hge := pow_by_squaring.pow_ge_base b.toNat e.toNat (by omega) (by omega)
             have hr1 : (1 : Nat) <= result.toNat := by omega
-            have hN : b.toNat <= pow base.toNat exp.toNat := by nlinarith [hge, hr1]
+            have hN : b.toNat <= pow_by_squaring.pow base.toNat exp.toNat := by nlinarith [hge, hr1]
             omega
         };
         // (B) b*b fits in u64: b <= 2^31 (from A + the invariant bound), so b*b <= 2^62.
@@ -148,11 +148,11 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
                 intros
                 have hbb : ((b * b : Int)).toNat = b.toNat * b.toNat := by rw [Int.toNat_mul] <;> omega
                 have hrb : ((result * b : Int)).toNat = result.toNat * b.toNat := by rw [Int.toNat_mul] <;> omega
-                have hsq := pow_square b.toNat (e / 2).toNat
+                have hsq := pow_by_squaring.pow_square b.toNat (e / 2).toNat
                 have he : 2 * (e / 2).toNat = e.toNat - 1 := by omega
                 rw [he] at hsq
-                have hrec : pow b.toNat e.toNat = b.toNat * pow b.toNat (e.toNat - 1) := by
-                    conv_lhs => unfold pow
+                have hrec : pow_by_squaring.pow b.toNat e.toNat = b.toNat * pow_by_squaring.pow b.toNat (e.toNat - 1) := by
+                    conv_lhs => unfold pow_by_squaring.pow
                     rw [if_neg (by omega : e.toNat ≠ 0)]
                     rw [show ((e.toNat : Int) - 1).toNat = e.toNat - 1 from by omega]
                 rw [hbb, hrb, hsq, mul_assoc, ← hrec]
@@ -164,7 +164,7 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
                 intros
                 have hbb : ((b * b : Int)).toNat = b.toNat * b.toNat := by rw [Int.toNat_mul] <;> omega
                 have hb1 : (1 : Nat) <= b.toNat := by omega
-                have hpos := pow_pos ((b * b : Int)).toNat (e / 2).toNat (by rw [hbb]; nlinarith [hb1])
+                have hpos := pow_by_squaring.pow_pos ((b * b : Int)).toNat (e / 2).toNat (by rw [hbb]; nlinarith [hb1])
                 have hN : (result * b : Int).toNat <= 0x8000_0000 := by nlinarith [hpos]
                 have hnn : (0 : Int) <= result * b := by nlinarith
                 omega
@@ -189,7 +189,7 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
             assert((result as nat) * pow((b * b) as nat, (e / 2) as nat) == pow(base as nat, exp as nat)) by {
                 intros
                 have hbb : ((b * b : Int)).toNat = b.toNat * b.toNat := by rw [Int.toNat_mul] <;> omega
-                have hsq := pow_square b.toNat (e / 2).toNat
+                have hsq := pow_by_squaring.pow_square b.toNat (e / 2).toNat
                 have he : 2 * (e / 2).toNat = e.toNat := by omega
                 rw [he] at hsq
                 rw [hbb, hsq]
@@ -211,8 +211,8 @@ fn pow_iter(base: u64, exp: u64) -> (r: u64)
     assert(result as nat == pow(base as nat, exp as nat)) by {
         intros
         have he0 : e.toNat = 0 := by omega
-        have h1 : pow b.toNat e.toNat = 1 := by rw [he0]; unfold pow; simp
-        have hN : result.toNat = pow base.toNat exp.toNat := by nlinarith [h1]
+        have h1 : pow_by_squaring.pow b.toNat e.toNat = 1 := by rw [he0]; unfold pow_by_squaring.pow; simp
+        have hN : result.toNat = pow_by_squaring.pow base.toNat exp.toNat := by nlinarith [h1]
         omega
     };
     result

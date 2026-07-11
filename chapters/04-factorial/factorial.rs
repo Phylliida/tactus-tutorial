@@ -44,15 +44,15 @@ proof fn fact_pos(n: nat)
     decreases n
 by {
     if h : n = 0 then (
-        subst h; unfold fact; decide
+        subst h; unfold factorial.fact; decide
     ) else (
         have ih := fact_pos (n - 1)
-        have rec_app : fact n = n * fact ((↑n : Int) - 1).toNat := by
-            conv_lhs => unfold fact
+        have rec_app : factorial.fact n = n * factorial.fact ((↑n : Int) - 1).toNat := by
+            conv_lhs => unfold factorial.fact
             rw [if_neg (by omega : n ≠ 0)]
         have e : ((↑n : Int) - 1).toNat = n - 1 := by omega
         rw [e] at rec_app
-        have h_prod : 1 * 1 <= n * fact (n - 1) := by
+        have h_prod : 1 * 1 <= n * factorial.fact (n - 1) := by
             apply Nat.mul_le_mul <;> omega
         omega
     )
@@ -66,15 +66,15 @@ by {
     if h : k = m then (
         subst h; omega
     ) else (
-        have ih := fact_monotone k (m - 1)
+        have ih := factorial.fact_monotone k (m - 1)
         have ih_app := ih (by omega)
-        have step : fact (m - 1) <= fact m := by
-            have rec_app : fact m = m * fact ((↑m : Int) - 1).toNat := by
-                conv_lhs => unfold fact
+        have step : factorial.fact (m - 1) <= factorial.fact m := by
+            have rec_app : factorial.fact m = m * factorial.fact ((↑m : Int) - 1).toNat := by
+                conv_lhs => unfold factorial.fact
                 rw [if_neg (by omega : m ≠ 0)]
             have e : ((↑m : Int) - 1).toNat = m - 1 := by omega
             rw [e] at rec_app
-            have h_step : 1 * fact (m - 1) <= m * fact (m - 1) := by
+            have h_step : 1 * factorial.fact (m - 1) <= m * factorial.fact (m - 1) := by
                 apply Nat.mul_le_mul_right; omega
             omega
         omega
@@ -84,7 +84,7 @@ by {
 proof fn fact_10_bound()
     ensures fact(10 as nat) <= 3628800
 by {
-    repeat unfold fact
+    repeat unfold factorial.fact
     decide
 }
 
@@ -97,9 +97,9 @@ fn factorial(n: u64) -> (r: u64)
     let mut i: u64 = 0;
     assert(result as nat == fact(i as nat)) by {
         -- result := 1, i := 0 are goal-position lets (not intro'd); `show` strips
-        -- them by defeq to a concrete goal, then fact 0 = 1.
-        show Int.toNat 1 = fact (Int.toNat 0)
-        unfold fact
+        -- them by defeq to a concrete goal, then factorial.fact 0 = 1.
+        show Int.toNat 1 = factorial.fact (Int.toNat 0)
+        unfold factorial.fact
         simp
     };
     while i < n
@@ -118,8 +118,8 @@ fn factorial(n: u64) -> (r: u64)
         //   normalizes the `(i+1).toNat` cast before `linarith` matches.
         assert(fact((i + 1) as nat) == (i + 1) * fact(i as nat)) by {
             intros
-            have rec_app : fact ((i + 1 : Int).toNat) = (i + 1 : Int).toNat * fact ((↑((i + 1 : Int).toNat) : Int) - 1).toNat := by
-                conv_lhs => unfold fact
+            have rec_app : factorial.fact ((i + 1 : Int).toNat) = (i + 1 : Int).toNat * factorial.fact ((↑((i + 1 : Int).toNat) : Int) - 1).toNat := by
+                conv_lhs => unfold factorial.fact
                 rw [if_neg (by omega : ((i + 1 : Int).toNat : Nat) ≠ 0)]
             have e : ((↑((i + 1 : Int).toNat) : Int) - 1).toNat = i.toNat := by omega
             have e2 : ((i + 1 : Int).toNat : Int) = i + 1 := by omega
@@ -136,11 +136,11 @@ fn factorial(n: u64) -> (r: u64)
         //   them with the recurrence (assert (1), in context).
         assert(result * (i + 1) <= 3628800) by {
             intros
-            have mono := fact_monotone ((i + 1 : Int).toNat) 10
+            have mono := factorial.fact_monotone ((i + 1 : Int).toNat) 10
             have mono_app := mono (by omega)
-            have b10 : fact (10 : Nat) <= 3628800 := fact_10_bound 0
-            have hri : result = (fact i.toNat : Int) := by omega
-            have hb : (fact ((i + 1 : Int).toNat) : Int) <= 3628800 := by omega
+            have b10 : factorial.fact (10 : Nat) <= 3628800 := factorial.fact_10_bound 0
+            have hri : result = (factorial.fact i.toNat : Int) := by omega
+            have hb : (factorial.fact ((i + 1 : Int).toNat) : Int) <= 3628800 := by omega
             nlinarith [hri, hb]
         };
         // (3) result * (i + 1) = fact(i+1) -- needed for maintain.
@@ -148,7 +148,7 @@ fn factorial(n: u64) -> (r: u64)
         //   (assert (1)), nlinarith closes result*(i+1) = ↑(fact (i+1).toNat).
         assert(result * (i + 1) == fact((i + 1) as nat)) by {
             intros
-            have hri : result = (fact i.toNat : Int) := by omega
+            have hri : result = (factorial.fact i.toNat : Int) := by omega
             nlinarith [hri]
         };
         result = result * (i + 1);
