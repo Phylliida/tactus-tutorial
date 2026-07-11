@@ -39,7 +39,7 @@ proof fn fib_recurrence(n: nat)
     requires n >= 1
     ensures fib(n + 1) == fib(n) + fib((n - 1) as nat)
 by {
-    conv_lhs => unfold fib
+    conv_lhs => unfold fib_iter.fib
     rw [if_neg (by omega : (n + 1 : Nat) ≠ 0)]
     rw [if_neg (by omega : (n + 1 : Nat) ≠ 1)]
     rw [show ((↑(n + 1) : Int) - 1).toNat = n from by omega]
@@ -56,13 +56,13 @@ by {
         omega
     ) else (
         have hge : m >= 1 := by omega
-        have ih := fib_monotone k (m - 1)
+        have ih := fib_iter.fib_monotone k (m - 1)
         have ih_app := ih (by omega)
-        have step : fib (m - 1) <= fib m := by
+        have step : fib_iter.fib (m - 1) <= fib_iter.fib m := by
             by_cases h0 : m = 1
-            · subst h0; unfold fib; decide
-            · have h_rec : fib m = fib (m - 1) + fib ((↑m - 2 : Int).toNat) := by
-                  conv_lhs => unfold fib
+            · subst h0; unfold fib_iter.fib; decide
+            · have h_rec : fib_iter.fib m = fib_iter.fib (m - 1) + fib_iter.fib ((↑m - 2 : Int).toNat) := by
+                  conv_lhs => unfold fib_iter.fib
                   rw [if_neg (by omega : m ≠ 0)]
                   rw [if_neg h0]
                   rw [show ((↑m : Int) - 1).toNat = m - 1 from by omega]
@@ -76,17 +76,17 @@ proof fn fib_10_bound()
 by {
     -- One unfold per recursion level down to the base cases, then
     -- `simp` as the closer. (Avoid intermediate `simp` for stability.)
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
-    unfold fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
+    unfold fib_iter.fib
     simp
 }
 
@@ -96,7 +96,7 @@ fn fib_iter(n: u64) -> (r: u64)
     ensures r as nat == fib(n as nat)
 {
     if n == 0 {
-        assert(fib(0 as nat) == 0) by { intros; unfold fib; decide };
+        assert(fib(0 as nat) == 0) by { intros; unfold fib_iter.fib; decide };
         return 0;
     }
     let mut a: u64 = 0;
@@ -108,12 +108,12 @@ fn fib_iter(n: u64) -> (r: u64)
     assert(a as nat == fib((i - 1) as nat)) by {
         intro _ a b i
         have h0 : (i - 1 : Int).toNat = 0 := by omega
-        rw [h0]; unfold fib; decide
+        rw [h0]; unfold fib_iter.fib; decide
     };
     assert(b as nat == fib(i as nat)) by {
         intro _ a b i _ _
         have h1 : i.toNat = 1 := by omega
-        rw [h1]; unfold fib; decide
+        rw [h1]; unfold fib_iter.fib; decide
     };
     while i < n
         invariant
@@ -128,7 +128,7 @@ fn fib_iter(n: u64) -> (r: u64)
     {
         assert(fib((i + 1) as nat) == fib(i as nat) + fib((i - 1) as nat)) by {
             intros
-            have h := fib_recurrence i.toNat
+            have h := fib_iter.fib_recurrence i.toNat
             have hge : i.toNat >= 1 := by omega
             have h2 := h hge
             have e1 : (i.toNat + 1 : Nat) = (i + 1 : Int).toNat := by omega
@@ -138,9 +138,9 @@ fn fib_iter(n: u64) -> (r: u64)
         };
         assert(fib((i + 1) as nat) <= 55) by {
             intros
-            have mono := fib_monotone ((i + 1 : Int).toNat) 10
+            have mono := fib_iter.fib_monotone ((i + 1 : Int).toNat) 10
             have mono_app := mono (by omega)
-            have b10 : fib (10 : Nat) <= 55 := fib_10_bound 0
+            have b10 : fib_iter.fib (10 : Nat) <= 55 := fib_iter.fib_10_bound 0
             omega
         };
         let tmp = a + b;

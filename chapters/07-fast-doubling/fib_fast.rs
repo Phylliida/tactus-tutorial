@@ -45,13 +45,13 @@ proof fn fib_addition(m: nat, n: nat)
     decreases m
 by {
     if h0 : m = 0 then (
-        subst h0; unfold fib; simp
+        subst h0; unfold fib_fast.fib; simp
     ) else if h1 : m = 1 then (
         subst h1
-        have f1 : fib 1 = 1 := by unfold fib; simp
-        have f2 : fib 2 = 1 := by unfold fib; unfold fib; unfold fib; simp
-        have step : fib (n + 2) = fib (n + 1) + fib n := by
-            conv_lhs => unfold fib
+        have f1 : fib_fast.fib 1 = 1 := by unfold fib_fast.fib; simp
+        have f2 : fib_fast.fib 2 = 1 := by unfold fib_fast.fib; unfold fib_fast.fib; unfold fib_fast.fib; simp
+        have step : fib_fast.fib (n + 2) = fib_fast.fib (n + 1) + fib_fast.fib n := by
+            conv_lhs => unfold fib_fast.fib
             rw [if_neg (by omega : (n + 2 : Nat) ≠ 0)]
             rw [if_neg (by omega : (n + 2 : Nat) ≠ 1)]
             rw [show ((↑(n + 2) : Int) - 1).toNat = n + 1 from by omega]
@@ -62,28 +62,28 @@ by {
     ) else (
         have h_m0 : ¬(m = 0) := by omega
         have h_m1 : ¬(m = 1) := by omega
-        have ih1 := fib_addition (m - 1) n
-        have ih2 := fib_addition (m - 2) n
+        have ih1 := fib_fast.fib_addition (m - 1) n
+        have ih2 := fib_fast.fib_addition (m - 2) n
         have e1a : (m - 1) + n + 1 = m + n := by omega
         have e1b : (m - 1) + 1 = m := by omega
         rw [e1a, e1b] at ih1
         have e2a : (m - 2) + n + 1 = m + n - 1 := by omega
         have e2b : (m - 2) + 1 = m - 1 := by omega
         rw [e2a, e2b] at ih2
-        have step_m : fib m = fib (m - 1) + fib (m - 2) := by
-            conv_lhs => unfold fib
+        have step_m : fib_fast.fib m = fib_fast.fib (m - 1) + fib_fast.fib (m - 2) := by
+            conv_lhs => unfold fib_fast.fib
             rw [if_neg h_m0]
             rw [if_neg h_m1]
             rw [show ((↑m : Int) - 1).toNat = m - 1 from by omega]
             rw [show ((↑m : Int) - 2).toNat = m - 2 from by omega]
-        have step_m1 : fib (m + 1) = fib m + fib (m - 1) := by
-            conv_lhs => unfold fib
+        have step_m1 : fib_fast.fib (m + 1) = fib_fast.fib m + fib_fast.fib (m - 1) := by
+            conv_lhs => unfold fib_fast.fib
             rw [if_neg (by omega : (m + 1 : Nat) ≠ 0)]
             rw [if_neg (by omega : (m + 1 : Nat) ≠ 1)]
             rw [show ((↑(m + 1) : Int) - 1).toNat = m from by omega]
             rw [show ((↑(m + 1) : Int) - 2).toNat = m - 1 from by omega]
-        have step_sum : fib (m + n + 1) = fib (m + n) + fib (m + n - 1) := by
-            conv_lhs => unfold fib
+        have step_sum : fib_fast.fib (m + n + 1) = fib_fast.fib (m + n) + fib_fast.fib (m + n - 1) := by
+            conv_lhs => unfold fib_fast.fib
             rw [if_neg (by omega : (m + n + 1 : Nat) ≠ 0)]
             rw [if_neg (by omega : (m + n + 1 : Nat) ≠ 1)]
             rw [show ((↑(m + n + 1) : Int) - 1).toNat = m + n from by omega]
@@ -104,19 +104,19 @@ by {
     if h : k = m then (
         subst h; omega
     ) else (
-        have ih := fib_mono k (m - 1)
+        have ih := fib_fast.fib_mono k (m - 1)
         have ih_app := ih (by omega)
-        have step : fib (m - 1) <= fib m := by
+        have step : fib_fast.fib (m - 1) <= fib_fast.fib m := by
             if hm1 : m = 1 then (
                 subst hm1
-                have f0 : fib 0 = 0 := by unfold fib; simp
-                have f1 : fib 1 = 1 := by unfold fib; simp
-                show fib 0 ≤ fib 1   -- defeq `1 - 1 ≡ 0`, so omega's atoms match f0/f1
+                have f0 : fib_fast.fib 0 = 0 := by unfold fib_fast.fib; simp
+                have f1 : fib_fast.fib 1 = 1 := by unfold fib_fast.fib; simp
+                show fib_fast.fib 0 ≤ fib_fast.fib 1   -- defeq `1 - 1 ≡ 0`, so omega's atoms match f0/f1
                 omega
             ) else (
-                -- m >= 2: fib m = fib(m-1) + fib(m-2) >= fib(m-1) (fib(m-2) >= 0).
-                have hrec : fib m = fib (m - 1) + fib (m - 2) := by
-                    conv_lhs => unfold fib
+                -- m >= 2: fib_fast.fib m = fib_fast.fib(m-1) + fib_fast.fib(m-2) >= fib_fast.fib(m-1) (fib_fast.fib(m-2) >= 0).
+                have hrec : fib_fast.fib m = fib_fast.fib (m - 1) + fib_fast.fib (m - 2) := by
+                    conv_lhs => unfold fib_fast.fib
                     rw [if_neg (by omega : m ≠ 0)]
                     rw [if_neg (by omega : m ≠ 1)]
                     rw [show ((↑m : Int) - 1).toNat = m - 1 from by omega]
@@ -157,8 +157,8 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
 {
     if n == 0 {
         // (F(0), F(1)) = (0, 1).
-        assert(fib(0 as nat) == 0) by { intros; unfold fib; simp };
-        assert(fib(1 as nat) == 1) by { intros; unfold fib; simp };
+        assert(fib(0 as nat) == 0) by { intros; unfold fib_fast.fib; simp };
+        assert(fib(1 as nat) == 1) by { intros; unfold fib_fast.fib; simp };
         (0, 1)
     } else {
         let k = n / 2;
@@ -169,7 +169,7 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             -- `intros` leaves it inaccessible here). The four `_` are
             -- decrease_init0 and the n=0 / 2≠0 / 2≠0 guards before it.
             intro _ _ _ _ k
-            have hm := fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
+            have hm := fib_fast.fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
             omega
         };
         let (a, b) = fast_fib(k);   // a.toNat == fib k.toNat, b.toNat == fib (k+1).toNat
@@ -181,13 +181,13 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
         // recursive call's ensures are stated over, then omega closes.)
         assert(b <= 0x8000_0000) by {
             intros
-            have hm := fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
+            have hm := fib_fast.fib_mono ((k + 1).toNat) ((n + 1).toNat) (by omega);
             simp only [a, b, tmp___0] at *
             omega
         };
         assert(a <= b) by {
             intros
-            have hmono := fib_mono (k.toNat) ((k + 1).toNat) (by omega);
+            have hmono := fib_fast.fib_mono (k.toNat) ((k + 1).toNat) (by omega);
             simp only [a, b, tmp___0] at *
             omega
         };
@@ -212,15 +212,15 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // F(2k+1) = F(k)^2 + F(k+1)^2  (fib_addition at m=n=k).
             assert(d as nat == fib((n + 1) as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib_fast.fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib_fast.fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hd_def : (d : Int) = a * a + b * b := by simp only [d, tmp__3]
                 have hd0 : (0 : Int) <= a * a + b * b := by omega
-                have hadd := fib_addition (k.toNat) (k.toNat);
+                have hadd := fib_fast.fib_addition (k.toNat) (k.toNat);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
                 rw [hk1] at hadd
-                have haddZ : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast hadd
-                have hdZ : (d : Int) = ↑(fib (k.toNat + k.toNat + 1)) := by rw [hd_def, e1, e2]; omega
+                have haddZ : (fib_fast.fib (k.toNat + k.toNat + 1) : Int) = ↑(fib_fast.fib k.toNat) * ↑(fib_fast.fib k.toNat) + ↑(fib_fast.fib ((k + 1).toNat)) * ↑(fib_fast.fib ((k + 1).toNat)) := by exact_mod_cast hadd
+                have hdZ : (d : Int) = ↑(fib_fast.fib (k.toNat + k.toNat + 1)) := by rw [hd_def, e1, e2]; omega
                 rw [show k.toNat + k.toNat + 1 = (n + 1).toNat from by omega] at hdZ
                 omega
             };
@@ -230,36 +230,36 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // fib_addition, then convert via c ≥ 0.
             assert(c as nat == fib(n as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib_fast.fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib_fast.fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hc_def : (c : Int) = a * (2 * b - a) := by simp only [c, tmp__2]
                 have hc0 : (0 : Int) <= a * (2 * b - a) := by nlinarith
-                have h1 := fib_addition (k.toNat) (k.toNat);
-                have h2 := fib_addition (k.toNat) (k.toNat + 1);
+                have h1 := fib_fast.fib_addition (k.toNat) (k.toNat);
+                have h2 := fib_fast.fib_addition (k.toNat) (k.toNat + 1);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
-                have hr : fib (k.toNat + 1 + 1) = fib (k.toNat + 1) + fib (k.toNat) := by
-                    conv_lhs => unfold fib
+                have hr : fib_fast.fib (k.toNat + 1 + 1) = fib_fast.fib (k.toNat + 1) + fib_fast.fib (k.toNat) := by
+                    conv_lhs => unfold fib_fast.fib
                     rw [if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 0), if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 1)]
                     rw [show ((↑(k.toNat + 1 + 1) : Int) - 1).toNat = k.toNat + 1 from by omega]
                     rw [show ((↑(k.toNat + 1 + 1) : Int) - 2).toNat = k.toNat from by omega]
-                have hrec : fib (k.toNat + k.toNat + 1 + 1) = fib (k.toNat + k.toNat + 1) + fib (k.toNat + k.toNat) := by
-                    conv_lhs => unfold fib
+                have hrec : fib_fast.fib (k.toNat + k.toNat + 1 + 1) = fib_fast.fib (k.toNat + k.toNat + 1) + fib_fast.fib (k.toNat + k.toNat) := by
+                    conv_lhs => unfold fib_fast.fib
                     rw [if_neg (by omega : (k.toNat + k.toNat + 1 + 1 : Nat) ≠ 0), if_neg (by omega : (k.toNat + k.toNat + 1 + 1 : Nat) ≠ 1)]
                     rw [show ((↑(k.toNat + k.toNat + 1 + 1) : Int) - 1).toNat = k.toNat + k.toNat + 1 from by omega]
                     rw [show ((↑(k.toNat + k.toNat + 1 + 1) : Int) - 2).toNat = k.toNat + k.toNat from by omega]
                 rw [show k.toNat + (k.toNat + 1) + 1 = k.toNat + k.toNat + 1 + 1 from by omega] at h2
                 rw [hr] at h2
                 rw [hk1] at h1 h2
-                have h1Z : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast h1
-                have h2Z : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib k.toNat) * ↑(fib ((k + 1).toNat)) + ↑(fib ((k + 1).toNat)) * (↑(fib ((k + 1).toNat)) + ↑(fib k.toNat)) := by exact_mod_cast h2
-                have hrecZ : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib (k.toNat + k.toNat + 1)) + ↑(fib (k.toNat + k.toNat)) := by exact_mod_cast hrec
+                have h1Z : (fib_fast.fib (k.toNat + k.toNat + 1) : Int) = ↑(fib_fast.fib k.toNat) * ↑(fib_fast.fib k.toNat) + ↑(fib_fast.fib ((k + 1).toNat)) * ↑(fib_fast.fib ((k + 1).toNat)) := by exact_mod_cast h1
+                have h2Z : (fib_fast.fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib_fast.fib k.toNat) * ↑(fib_fast.fib ((k + 1).toNat)) + ↑(fib_fast.fib ((k + 1).toNat)) * (↑(fib_fast.fib ((k + 1).toNat)) + ↑(fib_fast.fib k.toNat)) := by exact_mod_cast h2
+                have hrecZ : (fib_fast.fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib_fast.fib (k.toNat + k.toNat + 1)) + ↑(fib_fast.fib (k.toNat + k.toNat)) := by exact_mod_cast hrec
                 -- `c = F(2k)` is a polynomial identity in F(k), F(k+1): with the
                 -- three product hyps below, F(2k) = F(2k+2) − F(2k+1) gives
                 -- a·(2b−a) exactly. `linear_combination` (targeted `ring`) closes
                 -- it directly — bare `nlinarith [h1Z,h2Z,hrecZ]` instead folds the
-                -- three fib-product hints over the whole context and blows the
+                -- three fib_fast.fib-product hints over the whole context and blows the
                 -- interpreter stack (deep-recursion abort).
-                have hcZ : (c : Int) = ↑(fib (k.toNat + k.toNat)) := by
+                have hcZ : (c : Int) = ↑(fib_fast.fib (k.toNat + k.toNat)) := by
                     rw [hc_def, e1, e2]; linear_combination h1Z - h2Z + hrecZ
                 have hn : k.toNat + k.toNat = n.toNat := by omega
                 rw [hn] at hcZ
@@ -271,15 +271,15 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // F(n) = F(2k+1) = F(k)^2 + F(k+1)^2 = d  (same identity as even-d).
             assert(d as nat == fib(n as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib_fast.fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib_fast.fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hd_def : (d : Int) = a * a + b * b := by simp only [d, tmp__3]
                 have hd0 : (0 : Int) <= a * a + b * b := by omega
-                have hadd := fib_addition (k.toNat) (k.toNat);
+                have hadd := fib_fast.fib_addition (k.toNat) (k.toNat);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
                 rw [hk1] at hadd
-                have haddZ : (fib (k.toNat + k.toNat + 1) : Int) = ↑(fib k.toNat) * ↑(fib k.toNat) + ↑(fib ((k + 1).toNat)) * ↑(fib ((k + 1).toNat)) := by exact_mod_cast hadd
-                have hdZ : (d : Int) = ↑(fib (k.toNat + k.toNat + 1)) := by rw [hd_def, e1, e2]; omega
+                have haddZ : (fib_fast.fib (k.toNat + k.toNat + 1) : Int) = ↑(fib_fast.fib k.toNat) * ↑(fib_fast.fib k.toNat) + ↑(fib_fast.fib ((k + 1).toNat)) * ↑(fib_fast.fib ((k + 1).toNat)) := by exact_mod_cast hadd
+                have hdZ : (d : Int) = ↑(fib_fast.fib (k.toNat + k.toNat + 1)) := by rw [hd_def, e1, e2]; omega
                 rw [show k.toNat + k.toNat + 1 = n.toNat from by omega] at hdZ
                 omega
             };
@@ -287,21 +287,21 @@ fn fast_fib(n: u64) -> (res: (u64, u64))
             // = F(k)·F(k+1) + F(k+1)·F(k+2) with F(k+2)=F(k+1)+F(k) (fib_addition + recurrence).
             assert((c + d) as nat == fib((n + 1) as nat)) by {
                 intros
-                have e1 : (a : Int) = ↑(fib (k.toNat)) := by simp only [a, tmp___0]; omega
-                have e2 : (b : Int) = ↑(fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
+                have e1 : (a : Int) = ↑(fib_fast.fib (k.toNat)) := by simp only [a, tmp___0]; omega
+                have e2 : (b : Int) = ↑(fib_fast.fib ((k + 1).toNat)) := by simp only [b, tmp___0]; omega
                 have hcd_def : (c + d : Int) = a * (2 * b - a) + (a * a + b * b) := by simp only [c, d, tmp__2, tmp__3]
-                have h2 := fib_addition (k.toNat) (k.toNat + 1);
+                have h2 := fib_fast.fib_addition (k.toNat) (k.toNat + 1);
                 have hk1 : k.toNat + 1 = (k + 1).toNat := by omega
-                have hr : fib (k.toNat + 1 + 1) = fib (k.toNat + 1) + fib (k.toNat) := by
-                    conv_lhs => unfold fib
+                have hr : fib_fast.fib (k.toNat + 1 + 1) = fib_fast.fib (k.toNat + 1) + fib_fast.fib (k.toNat) := by
+                    conv_lhs => unfold fib_fast.fib
                     rw [if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 0), if_neg (by omega : (k.toNat + 1 + 1 : Nat) ≠ 1)]
                     rw [show ((↑(k.toNat + 1 + 1) : Int) - 1).toNat = k.toNat + 1 from by omega]
                     rw [show ((↑(k.toNat + 1 + 1) : Int) - 2).toNat = k.toNat from by omega]
                 rw [show k.toNat + (k.toNat + 1) + 1 = k.toNat + k.toNat + 1 + 1 from by omega] at h2
                 rw [hr] at h2
                 rw [hk1] at h2
-                have h2Z : (fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib k.toNat) * ↑(fib ((k + 1).toNat)) + ↑(fib ((k + 1).toNat)) * (↑(fib ((k + 1).toNat)) + ↑(fib k.toNat)) := by exact_mod_cast h2
-                have hcdZ : (c + d : Int) = ↑(fib (k.toNat + k.toNat + 1 + 1)) := by rw [hcd_def, e1, e2]; nlinarith [h2Z]
+                have h2Z : (fib_fast.fib (k.toNat + k.toNat + 1 + 1) : Int) = ↑(fib_fast.fib k.toNat) * ↑(fib_fast.fib ((k + 1).toNat)) + ↑(fib_fast.fib ((k + 1).toNat)) * (↑(fib_fast.fib ((k + 1).toNat)) + ↑(fib_fast.fib k.toNat)) := by exact_mod_cast h2
+                have hcdZ : (c + d : Int) = ↑(fib_fast.fib (k.toNat + k.toNat + 1 + 1)) := by rw [hcd_def, e1, e2]; nlinarith [h2Z]
                 rw [show k.toNat + k.toNat + 1 + 1 = (n + 1).toNat from by omega] at hcdZ
                 omega
             };
