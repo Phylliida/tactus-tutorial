@@ -140,7 +140,7 @@ fn fib_iter(n: u64) -> (r: u64)
             intros
             have mono := fib_iter.fib_monotone ((i + 1 : Int).toNat) 10
             have mono_app := mono (by omega)
-            have b10 : fib_iter.fib (10 : Nat) <= 55 := fib_iter.fib_10_bound 0
+            have b10 : fib_iter.fib (10 : Nat) <= 55 := fib_iter.fib_10_bound
             omega
         };
         let tmp = a + b;

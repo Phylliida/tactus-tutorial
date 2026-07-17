@@ -117,7 +117,7 @@ by {
         subst h
         simp [matrix_fib.mat_pow]
     ) else (
-        have ih := mat_pow_square m (k - 1)
+        have ih := mat_pow_square mat_mul_assoc m (k - 1)
         conv_lhs => unfold matrix_fib.mat_pow
         rw [if_neg (by omega : k ≠ 0)]
         rw [show ((↑k : Int) - 1).toNat = k - 1 from by omega]
@@ -149,7 +149,7 @@ by {
         rw [h0, show (0 : Nat) + j = j from by omega]
         exact mat_id_left_lit (matrix_fib.mat_pow m j)
     ) else (
-        have ih := matrix_fib.mat_pow_add m (i - 1) j
+        have ih := matrix_fib.mat_pow_add mat_mul_assoc mat_id_left_lit m (i - 1) j
         have hi : matrix_fib.mat_pow m i = matrix_fib.mat_mul m (matrix_fib.mat_pow m (i - 1)) := by
             conv_lhs => unfold matrix_fib.mat_pow
             rw [if_neg (by omega : i ≠ 0)]
@@ -268,9 +268,9 @@ by {
     ) else (
         have hf := mat_pow_fib (g - 1)
         rw [show (g - 1) + 1 = g from by omega, show (g - 1) + 2 = g + 1 from by omega] at hf
-        have m1 := matrix_fib.fib_mono (g + 1) (n + 1) (by omega)
-        have m2 := matrix_fib.fib_mono g (n + 1) (by omega)
-        have m3 := matrix_fib.fib_mono (g - 1) (n + 1) (by omega)
+        have m1 := fib_mono (g + 1) (n + 1) (by omega)
+        have m2 := fib_mono g (n + 1) (by omega)
+        have m3 := fib_mono (g - 1) (n + 1) (by omega)
         rw [hf]; simp only [matrix_fib.Mat2.mk.injEq]
         omega
     )
@@ -328,7 +328,7 @@ fn qpow_exec(n: u64) -> (r: M)
     } else {
         assert(fib((n / 2 + 1) as nat) <= 0x8000_0000) by {
             intros
-            have hm := matrix_fib.fib_mono ((n / 2 + 1).toNat) ((n + 1).toNat) (by omega);
+            have hm := fib_mono ((n / 2 + 1).toNat) ((n + 1).toNat) (by omega);
             omega
         };
         let half = qpow_exec(n / 2);   // view(half) == Q^(n/2)

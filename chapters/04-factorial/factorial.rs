@@ -138,7 +138,7 @@ fn factorial(n: u64) -> (r: u64)
             intros
             have mono := factorial.fact_monotone ((i + 1 : Int).toNat) 10
             have mono_app := mono (by omega)
-            have b10 : factorial.fact (10 : Nat) <= 3628800 := factorial.fact_10_bound 0
+            have b10 : factorial.fact (10 : Nat) <= 3628800 := factorial.fact_10_bound
             have hri : result = (factorial.fact i.toNat : Int) := by omega
             have hb : (factorial.fact ((i + 1 : Int).toNat) : Int) <= 3628800 := by omega
             nlinarith [hri, hb]
